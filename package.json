@@ -1,0 +1,9 @@
+{
+  "name": "devtimesheet-root",
+  "version": "1.0.0",
+  "private": true,
+  "description": "DevTimesheet monorepo root for Vercel deployment",
+  "scripts": {
+    "build": "cd frontend && npm install && npm run build"
+  }
+}

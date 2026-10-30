@@ -9,14 +9,28 @@ from backend.app.models.base import Base
 
 settings = get_settings()
 
+db_url = settings.database_url
+if db_url.startswith("postgres://"):
+    db_url = db_url.replace("postgres://", "postgresql://", 1)
+
+# Handle Vercel serverless environment for SQLite
+if os.environ.get("VERCEL") and db_url.startswith("sqlite") and "data" in db_url:
+    db_url = "sqlite:////tmp/devtimesheet.db"
+
 # Ensure parent directory for SQLite database exists
-if settings.database_url.startswith("sqlite"):
-    db_path = settings.database_url.replace("sqlite:///", "")
-    Path(os.path.dirname(os.path.abspath(db_path))).mkdir(parents=True, exist_ok=True)
+if db_url.startswith("sqlite"):
+    # Strip sqlite prefix to extract filesystem path
+    clean_path = db_url.replace("sqlite:////", "/").replace("sqlite:///", "")
+    dir_name = os.path.dirname(os.path.abspath(clean_path))
+    if dir_name:
+        try:
+            Path(dir_name).mkdir(parents=True, exist_ok=True)
+        except Exception:
+            pass
 
 engine = create_engine(
-    settings.database_url,
-    connect_args={"check_same_thread": False} if "sqlite" in settings.database_url else {},
+    db_url,
+    connect_args={"check_same_thread": False} if "sqlite" in db_url else {},
     echo=False,
 )
 

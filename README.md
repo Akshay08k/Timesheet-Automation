@@ -93,5 +93,6 @@ npm run build
 
 - [plan.md](plan.md): Full product specification and phased delivery roadmap.
 - [docs/architecture.md](docs/architecture.md): Architectural flow and Gemini AI prompt engineering details.
+- [docs/vercel-deployment.md](docs/vercel-deployment.md): Step-by-step guide for full-stack deployment on Vercel.
 - [docs/rysun-field-mapping.md](docs/rysun-field-mapping.md): Field reference names and WIQL queries for Rysun Resource Timesheet work items.
 - [docs/setup.md](docs/setup.md): Complete setup and deployment guide.
