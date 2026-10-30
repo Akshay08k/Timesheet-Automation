@@ -1,0 +1,28 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: devtimesheet-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - APP_ENV=production
+      - HOST=0.0.0.0
+      - PORT=8000
+      - DATABASE_URL=sqlite:///./data/devtimesheet.db
+      - SECRET_KEY=${SECRET_KEY}
+      - PAT_ENCRYPTION_KEY=${PAT_ENCRYPTION_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+    volumes:
+      - ./data:/app/data
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: devtimesheet-frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
