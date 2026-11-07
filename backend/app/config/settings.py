@@ -73,6 +73,10 @@ class Settings(BaseSettings):
     secret_key: str = "dev_secret_key_change_in_production_min_32_characters_long"
     pat_encryption_key: Optional[str] = None
     access_token_expire_minutes: int = 60 * 24 * 7  # 7 days
+    allowed_email_domain: str = Field(
+        default="@rysun.com",
+        validation_alias=AliasChoices("ALLOWED_EMAIL_DOMAIN"),
+    )
 
     # MongoDB Database
     mongodb_uri: str = Field(

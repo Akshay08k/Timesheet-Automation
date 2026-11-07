@@ -12,6 +12,7 @@ class UserBase(BaseModel):
 
 
 class UserCreate(UserBase):
+    username: Optional[str] = Field(None, min_length=2, max_length=50)
     password: str = Field(..., min_length=6)
     is_admin: bool = False
 

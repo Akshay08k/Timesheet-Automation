@@ -3,6 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from pymongo.database import Database
+from backend.app.config.settings import get_settings
 from backend.app.models.database import get_db, get_next_sequence_value
 from backend.app.models.user import User
 from backend.app.schemas.auth import UserCreate, UserResponse, Token
@@ -10,14 +11,32 @@ from backend.app.security.jwt import hash_password, verify_password, create_acce
 from backend.app.api.deps import get_current_user
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
+settings = get_settings()
+
+
+def _validate_allowed_email_domain(email: str):
+    """Enforces email domain restriction for security if configured."""
+    allowed = (settings.allowed_email_domain or "").lower().strip()
+    if allowed and allowed != "*":
+        domain = allowed if allowed.startswith("@") else f"@{allowed}"
+        if not email.lower().endswith(domain):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Access restricted. Only '{domain}' email addresses are permitted.",
+            )
 
 
 @router.post("/register", response_model=UserResponse)
 def register_user(user_in: UserCreate, db: Database = Depends(get_db)):
     """Registers a new user in MongoDB. The first registered user automatically becomes an admin."""
+    # Enforce email domain restriction
+    _validate_allowed_email_domain(user_in.email)
+
+    username = user_in.username or user_in.email.split("@")[0].strip()
+
     # Check if username or email already exists
     existing = db.users.find_one(
-        {"$or": [{"username": user_in.username}, {"email": user_in.email}]}
+        {"$or": [{"username": username}, {"email": user_in.email}]}
     )
     if existing:
         raise HTTPException(status_code=400, detail="Username or email already registered.")
@@ -30,7 +49,7 @@ def register_user(user_in: UserCreate, db: Database = Depends(get_db)):
 
     user = User(
         id=user_id,
-        username=user_in.username,
+        username=username,
         email=user_in.email,
         full_name=user_in.full_name,
         hashed_password=hash_password(user_in.password),
@@ -52,9 +71,20 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Database = Depen
     if not user_doc or not verify_password(form_data.password, user_doc.get("hashed_password", "")):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password.",
+            detail="Incorrect email/username or password.",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+    # Domain security check on login
+    allowed = (settings.allowed_email_domain or "").lower().strip()
+    if allowed and allowed != "*":
+        domain = allowed if allowed.startswith("@") else f"@{allowed}"
+        user_email = (user_doc.get("email") or "").lower()
+        if not user_email.endswith(domain):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Access restricted: Only '{domain}' accounts are permitted to sign in.",
+            )
 
     user = User.from_doc(user_doc)
     access_token = create_access_token(data={"sub": str(user.id), "username": user.username})

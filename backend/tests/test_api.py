@@ -23,7 +23,7 @@ def test_health_check():
 def test_user_registration_and_login():
     unique_suffix = uuid.uuid4().hex[:8]
     username = f"testdev_{unique_suffix}"
-    email = f"testdev_{unique_suffix}@example.com"
+    email = f"testdev_{unique_suffix}@rysun.com"
     password = "SuperSecretPassword123"
 
     reg_resp = client.post(
@@ -48,7 +48,7 @@ def test_user_registration_and_login():
     assert saved_user["hashed_password"] != password
     assert saved_user["hashed_password"].startswith("$2b$")  # bcrypt hash
 
-    # Login
+    # Login with username
     login_resp = client.post(
         "/api/auth/login",
         data={"username": username, "password": password},
@@ -57,6 +57,13 @@ def test_user_registration_and_login():
     token_data = login_resp.json()
     assert "access_token" in token_data
     assert token_data["token_type"] == "bearer"
+
+    # Login with email
+    login_by_email_resp = client.post(
+        "/api/auth/login",
+        data={"username": email, "password": password},
+    )
+    assert login_by_email_resp.status_code == 200
 
     token = token_data["access_token"]
     auth_headers = {"Authorization": f"Bearer {token}"}
@@ -74,6 +81,23 @@ def test_user_registration_and_login():
     assert week_data["week_start"] == "2026-10-26"
     assert week_data["entries"][0]["day_of_week"] == "Monday"
     assert week_data["entries"][4]["day_of_week"] == "Friday"
+
+
+def test_email_domain_security_restriction():
+    """Verify that only @rysun.com accounts are permitted to register."""
+    unique_suffix = uuid.uuid4().hex[:8]
+    invalid_reg_resp = client.post(
+        "/api/auth/register",
+        json={
+            "username": f"baduser_{unique_suffix}",
+            "email": f"baduser_{unique_suffix}@gmail.com",
+            "full_name": "Unauthorized User",
+            "password": "Password123456",
+            "timezone": "Asia/Kolkata",
+        },
+    )
+    assert invalid_reg_resp.status_code == 400
+    assert "@rysun.com" in invalid_reg_resp.json()["detail"]
 
 
 def test_encrypted_information_stored_in_mongodb():
@@ -325,7 +349,7 @@ def test_generate_week_summaries_endpoint():
     test_user = {
         "id": test_user_id,
         "username": f"week_tester_{unique_suffix}",
-        "email": f"week_tester_{unique_suffix}@example.com",
+        "email": f"week_tester_{unique_suffix}@rysun.com",
         "full_name": "Week Tester",
         "hashed_password": "$2b$12$dummyhashforunittestingonlydummyhash1234567890",
         "timezone": "Asia/Kolkata",

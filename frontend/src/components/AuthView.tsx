@@ -1,18 +1,19 @@
 import React, { useState } from 'react';
 import { api } from '../api/client';
 import type { User } from '../types';
-import { Clock, Sparkles, Shield, ArrowRight } from 'lucide-react';
+import { Clock, Sparkles, Shield, ArrowRight, Lock } from 'lucide-react';
 
 interface AuthViewProps {
   onAuthSuccess: (user: User, token: string) => void;
 }
 
+const ALLOWED_DOMAIN = '@rysun.com';
+
 export const AuthView: React.FC<AuthViewProps> = ({ onAuthSuccess }) => {
   const [isLogin, setIsLogin] = useState(true);
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
   const [timezone, setTimezone] = useState('Asia/Kolkata');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -22,26 +23,36 @@ export const AuthView: React.FC<AuthViewProps> = ({ onAuthSuccess }) => {
     setLoading(true);
     setError(null);
 
+    const trimmedEmail = email.trim().toLowerCase();
+
+    // Security check: only allow @rysun.com domain
+    if (!trimmedEmail.endsWith(ALLOWED_DOMAIN)) {
+      setError(`Access Restricted: Only official ${ALLOWED_DOMAIN} email addresses are permitted.`);
+      setLoading(false);
+      return;
+    }
+
     try {
       if (isLogin) {
         const formData = new FormData();
-        formData.append('username', username);
+        formData.append('username', trimmedEmail);
         formData.append('password', password);
         const data = await api.login(formData);
         localStorage.setItem('token', data.access_token);
         localStorage.setItem('user', JSON.stringify(data.user));
         onAuthSuccess(data.user, data.access_token);
       } else {
+        const derivedUsername = trimmedEmail.split('@')[0];
         await api.register({
-          username,
+          username: derivedUsername,
           password,
-          full_name: fullName,
-          email,
+          full_name: fullName.trim(),
+          email: trimmedEmail,
           timezone,
         });
         // Auto login after register
         const formData = new FormData();
-        formData.append('username', username);
+        formData.append('username', trimmedEmail);
         formData.append('password', password);
         const data = await api.login(formData);
         localStorage.setItem('token', data.access_token);
@@ -67,9 +78,15 @@ export const AuthView: React.FC<AuthViewProps> = ({ onAuthSuccess }) => {
           <p className="text-xs text-blue-100 mt-1">
             Enterprise Azure DevOps & Google Gemini AI Timesheet Automation
           </p>
-          <div className="inline-flex items-center gap-1.5 mt-4 px-3 py-1 bg-white/15 rounded-full text-xs font-semibold backdrop-blur-xs">
-            <Sparkles className="w-3.5 h-3.5 text-yellow-300" />
-            Powered by Google Gemini 2.5 Flash
+          <div className="flex flex-wrap items-center justify-center gap-2 mt-4">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-white/15 rounded-full text-xs font-semibold backdrop-blur-xs">
+              <Sparkles className="w-3.5 h-3.5 text-yellow-300" />
+              Gemini 2.5 Flash
+            </div>
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-500/20 text-emerald-200 border border-emerald-400/30 rounded-full text-xs font-semibold backdrop-blur-xs">
+              <Shield className="w-3.5 h-3.5 text-emerald-300" />
+              Restricted: @rysun.com
+            </div>
           </div>
         </div>
 
@@ -84,7 +101,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onAuthSuccess }) => {
               isLogin ? 'text-blue-600 border-b-2 border-blue-600 bg-white' : 'text-slate-500 bg-slate-50 hover:bg-slate-100'
             }`}
           >
-            Sign In
+            Sign In with Email
           </button>
           <button
             onClick={() => {
@@ -95,27 +112,30 @@ export const AuthView: React.FC<AuthViewProps> = ({ onAuthSuccess }) => {
               !isLogin ? 'text-blue-600 border-b-2 border-blue-600 bg-white' : 'text-slate-500 bg-slate-50 hover:bg-slate-100'
             }`}
           >
-            Create Developer Account
+            Create Account
           </button>
         </div>
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-8 space-y-4">
           {error && (
-            <div className="p-3 text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-lg">
-              {error}
+            <div className="p-3 text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-lg flex items-start gap-2">
+              <Lock className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+              <span>{error}</span>
             </div>
           )}
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Username</label>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Work Email <span className="text-slate-400 font-normal">(@rysun.com)</span>
+            </label>
             <input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               required
               className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
-              placeholder="e.g. akshayk"
+              placeholder="e.g. your.name@rysun.com"
             />
           </div>
 
@@ -130,18 +150,6 @@ export const AuthView: React.FC<AuthViewProps> = ({ onAuthSuccess }) => {
                   required
                   className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
                   placeholder="e.g. Akshay Komale"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Email</label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
-                  placeholder="name@company.com"
                 />
               </div>
 
@@ -187,8 +195,8 @@ export const AuthView: React.FC<AuthViewProps> = ({ onAuthSuccess }) => {
 
         {/* Footer info */}
         <div className="p-4 bg-slate-50 border-t border-slate-200 text-center text-[11px] text-slate-500 flex items-center justify-center gap-1.5">
-          <Shield className="w-3.5 h-3.5 text-slate-400" />
-          <span>Local-first architecture. Azure DevOps PATs encrypted with AES-256-GCM.</span>
+          <Shield className="w-3.5 h-3.5 text-emerald-600" />
+          <span>Security enforced: Access limited exclusively to @rysun.com accounts.</span>
         </div>
       </div>
     </div>
