@@ -2,21 +2,22 @@
 
 import json
 import logging
+import re
 from typing import List, Dict, Any, Optional
 from google import genai
 from google.genai import types
 from backend.app.config.settings import get_settings
 from backend.app.schemas.summary import GeminiDailySummaryOutput
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("devtimesheet.gemini")
 
 
 class GeminiSummaryService:
     def __init__(self, api_key: Optional[str] = None):
         settings = get_settings()
         self.api_key = api_key or settings.gemini_api_key
-        self.model = settings.gemini_model  # default: gemini-2.5-flash
-        self.fallback_model = settings.gemini_fallback_model  # gemini-1.5-flash
+        self.model = settings.gemini_model  # default: gemini-3.8-flash
+        self.fallback_model = settings.gemini_fallback_model  # gemini-3.5-flash
         self._client: Optional[genai.Client] = None
 
         if self.api_key:
@@ -35,11 +36,33 @@ class GeminiSummaryService:
         custom_instructions: Optional[str] = None,
     ) -> GeminiDailySummaryOutput:
         """Generates a structured daily timesheet summary from Git commits and engineering activity."""
+        print(
+            f"\n[Gemini AI] Processing {date_str} | Commits: {len(commits)}, PRs: {len(pull_requests)}, WorkItems: {len(work_items)}, Manual: {len(manual_activities)}"
+        )
+
+        if not commits and not pull_requests and not work_items and not manual_activities and not custom_instructions:
+            print(
+                f"[Notice] 0 activities recorded in DB for {date_str}. Returning immediate default summary."
+            )
+            return GeminiDailySummaryOutput(
+                task_summary=f"No development activity recorded for {date_str}.",
+                detailed_bullets=[],
+                referenced_commit_shas=[],
+                referenced_pr_ids=[],
+                suggested_project="ClientCompany - Core Enhancements",
+                ambiguities_or_notes="No activities recorded for this date. Click 'Sync Activities from Azure DevOps' to fetch commits/PRs.",
+            )
+
         # Check if client is initialized
         if not self._client or not self.api_key:
-            logger.warning("Gemini API key is not configured. Falling back to rule-based summary.")
+            print("[Gemini AI] Gemini API key not configured. Using rule-based summary.")
             return self._generate_rule_based_summary(
-                date_str, commits, pull_requests, work_items, manual_activities, note="Gemini API key not configured. Generated via rule-based summary."
+                date_str,
+                commits,
+                pull_requests,
+                work_items,
+                manual_activities,
+                note="Gemini API key not configured. Generated via rule-based summary.",
             )
 
         # Build prompt payload
@@ -60,34 +83,59 @@ class GeminiSummaryService:
             "1. Grounding: You must strictly summarize only what is explicitly evidenced in the provided commit messages and activities. "
             "Never invent tasks or claim features were implemented if not mentioned.\n"
             "2. No Hours: Never estimate, guess, or assign working hours.\n"
-            "3. Formatting: Produce a concise 1-3 sentence high-level summary suitable for client review, along with actionable bullet points.\n"
+            "3. Formatting: Produce a concise 1-2 sentence high-level summary suitable for client review, along with distinct, actionable bullet points describing individual tasks, fixes, and PR merges in clean README format.\n"
             "4. References: List all commit SHAs and PR IDs that support your summary.\n"
             "5. Ambiguity: If commit messages are vague (e.g., 'wip', 'fix', 'changes'), note this in ambiguities_or_notes."
         )
 
-        try:
-            response = self._client.models.generate_content(
-                model=self.model,
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    temperature=0.2,
-                    system_instruction=system_instruction,
-                    response_mime_type="application/json",
-                    response_schema=GeminiDailySummaryOutput,
-                ),
-            )
+        # Try primary model first, then fallback model
+        models_to_try = [self.model]
+        if self.fallback_model and self.fallback_model != self.model:
+            models_to_try.append(self.fallback_model)
 
-            if response.text:
-                result_data = json.loads(response.text)
-                return GeminiDailySummaryOutput(**result_data)
-            else:
-                raise ValueError("Empty response text from Gemini API")
+        last_error = None
+        for m in models_to_try:
+            try:
+                print(f"[Gemini AI] Requesting analysis from model '{m}'...")
+                response = self._client.models.generate_content(
+                    model=m,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        temperature=0.2,
+                        system_instruction=system_instruction,
+                        response_mime_type="application/json",
+                        response_schema=GeminiDailySummaryOutput,
+                    ),
+                )
 
-        except Exception as e:
-            logger.error(f"Error calling Gemini API: {e}. Falling back to rule-based summary.")
-            return self._generate_rule_based_summary(
-                date_str, commits, pull_requests, work_items, manual_activities, note=f"Gemini API error ({str(e)}). Fallback generated."
-            )
+                if response.text:
+                    result_data = json.loads(response.text)
+                    if "referenced_pr_ids" in result_data and isinstance(result_data["referenced_pr_ids"], list):
+                        result_data["referenced_pr_ids"] = [
+                            re.sub(r"(?i)\bpr\b|#", "", str(p)).strip() for p in result_data["referenced_pr_ids"] if p
+                        ]
+                    print(
+                        f"[Gemini AI] Summary generated successfully via '{m}': {result_data.get('task_summary', '')[:80]}..."
+                    )
+                    return GeminiDailySummaryOutput(**result_data)
+                else:
+                    raise ValueError(f"Empty response text from {m}")
+
+            except Exception as e:
+                last_error = e
+                print(f"[Gemini AI Warning] Model '{m}' returned error: {e}")
+                logger.warning(f"Model '{m}' failed: {e}")
+
+        # If all Gemini models fail, fall back to rule-based summary
+        print(f"[Gemini AI] Falling back to deterministic rule-based summary: {last_error}")
+        return self._generate_rule_based_summary(
+            date_str,
+            commits,
+            pull_requests,
+            work_items,
+            manual_activities,
+            note=f"Gemini API fallback ({str(last_error)}).",
+        )
 
     def _build_prompt_payload(
         self,
@@ -98,55 +146,54 @@ class GeminiSummaryService:
         manual_activities: List[Dict[str, Any]],
         custom_instructions: Optional[str] = None,
     ) -> str:
-        """Constructs an information-dense prompt without sending source code or secrets."""
+        """Constructs an ultra-lightweight, high-signal prompt payload containing ONLY title, type, linked items & related info."""
         sections = [f"Date: {date_str}"]
 
         if custom_instructions:
-            sections.append(f"User Special Instructions: {custom_instructions}")
+            sections.append(f"User Special Instructions: {custom_instructions.strip()}")
 
-        # Git Commits
-        if commits:
-            commit_lines = ["\n### Git Commits:"]
-            for c in commits:
-                sha = c.get("external_id") or c.get("commitId") or ""
-                repo = c.get("repository", "")
-                msg = c.get("title") or c.get("comment", "")
-                commit_lines.append(f"- [{repo}] {sha[:8]}: {msg.strip()}")
-            sections.append("\n".join(commit_lines))
-        else:
-            sections.append("\n### Git Commits: None")
+        activity_lines = ["\n### Verified Activities:"]
 
-        # Pull Requests
-        if pull_requests:
-            pr_lines = ["\n### Pull Requests:"]
-            for pr in pull_requests:
-                pr_id = pr.get("external_id") or pr.get("pullRequestId") or ""
-                title = pr.get("title", "")
-                status = pr.get("status", "")
-                repo = pr.get("repository", "")
-                pr_lines.append(f"- [{repo}] PR #{pr_id} ({status}): {title.strip()}")
-            sections.append("\n".join(pr_lines))
+        # Commits: Title, Type, Short Ref, Repo
+        for c in commits:
+            sha = (c.get("external_id") or c.get("commitId") or "")[:8]
+            repo = c.get("repository") or "ClientRepository"
+            title = (c.get("title") or c.get("comment") or "").split("\n")[0].strip()
+            activity_lines.append(f"- [Type: Commit] Title: {title} | Ref: {sha} | Repo: {repo}")
 
-        # Work Items
-        if work_items:
-            wi_lines = ["\n### Azure DevOps Work Items:"]
-            for wi in work_items:
-                wi_id = wi.get("external_id") or wi.get("id") or ""
-                title = wi.get("title", "")
-                wi_lines.append(f"- WorkItem #{wi_id}: {title.strip()}")
-            sections.append("\n".join(wi_lines))
+        # Pull Requests: Title, Type, PR ID, linked Work Item, Repo
+        for pr in pull_requests:
+            pr_id = str(pr.get("external_id") or pr.get("pullRequestId") or "").lstrip("#")
+            title = (pr.get("title") or "").split("\n")[0].strip()
+            status = pr.get("status") or "active"
+            repo = pr.get("repository") or "ClientRepository"
+            related = pr.get("related_ids") or ""
+            linked_info = f" | Linked: {related}" if related else ""
+            activity_lines.append(f"- [Type: Pull Request] Title: {title} | Ref: PR #{pr_id} ({status}){linked_info} | Repo: {repo}")
 
-        # Manual Activities (Meetings, Discussions, Debugging)
-        if manual_activities:
-            ma_lines = ["\n### Developer Non-Code Activities:"]
-            for ma in manual_activities:
-                cat = ma.get("category", "Activity")
-                desc = ma.get("description", "")
-                dur = ma.get("duration_hours", "")
-                ma_lines.append(f"- [{cat}] ({dur}h): {desc.strip()}")
-            sections.append("\n".join(ma_lines))
+        # Work Items: Title, Type, WorkItem ID, linked PR, Repo
+        for wi in work_items:
+            wi_id = str(wi.get("external_id") or wi.get("id") or "")
+            title = (wi.get("title") or "").split("\n")[0].strip()
+            repo = wi.get("repository") or "ClientRepository"
+            related = wi.get("related_ids") or ""
+            linked_info = f" | Linked: {related}" if related else ""
+            activity_lines.append(f"- [Type: Work Item] Title: {title} | Ref: WorkItem #{wi_id}{linked_info} | Repo: {repo}")
 
-        return "\n".join(sections)
+        # Manual Activities: Title, Category, Duration
+        for ma in manual_activities:
+            cat = ma.get("category") or "Activity"
+            desc = (ma.get("description") or "").split("\n")[0].strip()
+            dur = ma.get("duration_hours") or ""
+            activity_lines.append(f"- [Type: Manual Activity ({cat})] Title: {desc} ({dur}h)")
+
+        sections.append("\n".join(activity_lines))
+        prompt = "\n".join(sections)
+
+        total_items = len(commits) + len(pull_requests) + len(work_items) + len(manual_activities)
+        print(f"[Gemini AI Payload] Lightweight Prompt: {len(prompt)} chars (~{len(prompt)//4} tokens) for {total_items} item(s)")
+
+        return prompt
 
     def _generate_rule_based_summary(
         self,
@@ -161,7 +208,7 @@ class GeminiSummaryService:
         bullets = []
         commit_shas = []
         pr_ids = []
-        suggested_project = None
+        suggested_project = "ClientCompany - Core Enhancements"
 
         for c in commits:
             sha = c.get("external_id") or c.get("commitId") or ""
@@ -176,10 +223,10 @@ class GeminiSummaryService:
             if sha:
                 commit_shas.append(sha[:8])
             repo = c.get("repository", "").lower()
-            if "vcqms" in repo:
-                suggested_project = "VCC - VCQMS Enhancements and InspectionDB"
-            elif "rma" in repo:
-                suggested_project = "VCC - RMA Modernization"
+            if "secondary" in repo or "rma" in repo:
+                suggested_project = "ClientCompany - Secondary Project"
+            else:
+                suggested_project = "ClientCompany - Core Enhancements"
 
         for pr in pull_requests:
             pr_id = str(pr.get("external_id") or pr.get("pullRequestId") or "")
@@ -187,6 +234,11 @@ class GeminiSummaryService:
             bullets.append(f"Pull Request #{pr_id}: {title}")
             if pr_id:
                 pr_ids.append(pr_id)
+
+        for wi in work_items:
+            wi_id = str(wi.get("external_id") or wi.get("id") or "")
+            wi_title = wi.get("title", "").strip().split("\n")[0]
+            bullets.append(f"WorkItem #{wi_id}: {wi_title}")
 
         for ma in manual_activities:
             cat = ma.get("category", "Activity")
@@ -205,6 +257,6 @@ class GeminiSummaryService:
             detailed_bullets=bullets,
             referenced_commit_shas=commit_shas,
             referenced_pr_ids=pr_ids,
-            suggested_project=suggested_project or "VCC - VCQMS Enhancements and InspectionDB",
+            suggested_project=suggested_project or "ClientCompany - Core Enhancements",
             ambiguities_or_notes=note,
         )

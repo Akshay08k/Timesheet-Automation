@@ -6,7 +6,7 @@ from pydantic import BaseModel, HttpUrl, Field, ConfigDict
 
 
 class CredentialCreate(BaseModel):
-    provider: str = Field(..., pattern="^(client|rysun)$")
+    provider: str = Field(..., pattern="^(client|mycompany|rysun)$")
     org_url: str = Field(..., min_length=10)
     pat: str = Field(..., min_length=10)
 

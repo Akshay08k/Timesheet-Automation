@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field, ConfigDict
 class GeminiDailySummaryOutput(BaseModel):
     """Structured response schema returned by Google Gemini API."""
     task_summary: str = Field(
-        description="A concise 1-3 sentence timesheet summary formatted for the Rysun Task Summary field."
+        description="A concise timesheet summary formatted in README format for the MyCompany Task Summary field."
     )
     detailed_bullets: List[str] = Field(
         default_factory=list,
@@ -23,8 +23,8 @@ class GeminiDailySummaryOutput(BaseModel):
         description="List of Pull Request IDs referenced."
     )
     suggested_project: Optional[str] = Field(
-        default=None,
-        description="Suggested project name based on repository context (e.g. VCQMS or RMA Modernization)."
+        default="ClientCompany - Core Enhancements",
+        description="Must be strictly either 'ClientCompany - Core Enhancements' or 'ClientCompany - Secondary Project'."
     )
     ambiguities_or_notes: Optional[str] = Field(
         default=None,
@@ -35,6 +35,11 @@ class GeminiDailySummaryOutput(BaseModel):
 class GenerateSummaryRequest(BaseModel):
     date_str: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2}$")
     regenerate: bool = False
+    custom_instruction: Optional[str] = None
+
+
+class GenerateWeekSummaryRequest(BaseModel):
+    monday_date_str: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2}$")
     custom_instruction: Optional[str] = None
 
 

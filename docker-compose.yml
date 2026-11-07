@@ -10,12 +10,11 @@ services:
       - APP_ENV=production
       - HOST=0.0.0.0
       - PORT=8000
-      - DATABASE_URL=sqlite:///./data/devtimesheet.db
+      - MONGODB_URI=${MONGODB_URI}
+      - MONGODB_DB_NAME=${MONGODB_DB_NAME:-devtimesheet}
       - SECRET_KEY=${SECRET_KEY}
       - PAT_ENCRYPTION_KEY=${PAT_ENCRYPTION_KEY}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
-    volumes:
-      - ./data:/app/data
 
   frontend:
     build:

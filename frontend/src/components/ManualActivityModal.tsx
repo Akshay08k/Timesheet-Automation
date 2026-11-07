@@ -123,7 +123,7 @@ export const ManualActivityModal: React.FC<ManualActivityModalProps> = ({
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 rows={2}
-                placeholder="e.g. Sprint planning meeting with Visual Comfort team to discuss RMA tickets..."
+                placeholder="e.g. Sprint planning meeting with ClientCompany team to discuss feature tickets..."
                 required
                 className="w-full text-xs px-2.5 py-1.5 bg-white border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:outline-hidden resize-none"
               />

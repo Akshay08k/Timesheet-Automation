@@ -1,33 +1,41 @@
-"""User model for multi-user isolation."""
+"""User model for MongoDB."""
 
-from typing import List, Optional
-from sqlalchemy import String, Boolean
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-from backend.app.models.base import Base, TimestampMixin
+from datetime import datetime
+from typing import Optional, Dict, Any
+from backend.app.models.base import BaseDoc, utc_now
 
 
-class User(Base, TimestampMixin):
-    __tablename__ = "users"
+class User(BaseDoc):
+    """User document stored in MongoDB 'users' collection."""
 
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    username: Mapped[str] = mapped_column(String(50), unique=True, index=True, nullable=False)
-    email: Mapped[str] = mapped_column(String(100), unique=True, index=True, nullable=False)
-    full_name: Mapped[str] = mapped_column(String(100), nullable=False)
-    hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
-    is_admin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    timezone: Mapped[str] = mapped_column(String(50), default="Asia/Kolkata", nullable=False)
+    def __init__(
+        self,
+        id: int,
+        username: str,
+        email: str,
+        full_name: str,
+        hashed_password: str,
+        is_admin: bool = False,
+        is_active: bool = True,
+        timezone: str = "Asia/Kolkata",
+        created_at: Optional[datetime] = None,
+        updated_at: Optional[datetime] = None,
+        **kwargs,
+    ):
+        self.id = int(id)
+        self.username = username
+        self.email = email
+        self.full_name = full_name
+        self.hashed_password = hashed_password
+        self.is_admin = bool(is_admin)
+        self.is_active = bool(is_active)
+        self.timezone = timezone
+        self.created_at = created_at or utc_now()
+        self.updated_at = updated_at or utc_now()
 
-    # Relationships
-    credentials: Mapped[List["AdoCredential"]] = relationship(
-        "AdoCredential", back_populates="user", cascade="all, delete-orphan"
-    )
-    activities: Mapped[List["ActivityItem"]] = relationship(
-        "ActivityItem", back_populates="user", cascade="all, delete-orphan"
-    )
-    manual_activities: Mapped[List["ManualActivity"]] = relationship(
-        "ManualActivity", back_populates="user", cascade="all, delete-orphan"
-    )
-    timesheet_drafts: Mapped[List["DailyTimesheetDraft"]] = relationship(
-        "DailyTimesheetDraft", back_populates="user", cascade="all, delete-orphan"
-    )
+    @classmethod
+    def from_doc(cls, doc: Optional[Dict[str, Any]]) -> Optional["User"]:
+        if not doc:
+            return None
+        data = {k: v for k, v in doc.items() if k != "_id"}
+        return cls(**data)

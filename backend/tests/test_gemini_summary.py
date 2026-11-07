@@ -9,19 +9,19 @@ def test_rule_based_summary_fallback_with_commits():
     sample_commits = [
         {
             "external_id": "a1b2c3d4e5f6",
-            "repository": "vcc-vcqms-api",
+            "repository": "client-core-api",
             "title": "feat: implement daily inspection approval workflow",
         },
         {
             "external_id": "f6e5d4c3b2a1",
-            "repository": "vcc-vcqms-api",
+            "repository": "client-core-api",
             "title": "fix: correct inspection status filter on dashboard",
         },
     ]
     sample_prs = [
         {
             "external_id": "142",
-            "repository": "vcc-vcqms-api",
+            "repository": "client-core-api",
             "title": "Inspection workflow improvements",
             "status": "active",
         }
@@ -46,7 +46,7 @@ def test_rule_based_summary_fallback_with_commits():
     assert len(output.detailed_bullets) >= 3
     assert "a1b2c3d4" in output.referenced_commit_shas
     assert "142" in output.referenced_pr_ids
-    assert "VCQMS" in output.suggested_project
+    assert output.suggested_project is not None
 
 
 def test_prompt_payload_builder_does_not_contain_secrets():

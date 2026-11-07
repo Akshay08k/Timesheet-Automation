@@ -10,7 +10,7 @@ export interface User {
 
 export interface AdoCredential {
   id: number;
-  provider: 'client' | 'rysun';
+  provider: 'client' | 'mycompany' | 'rysun';
   org_url: string;
   is_valid: boolean;
   has_pat: boolean;
@@ -75,8 +75,10 @@ export interface TimesheetEntry {
   detailed_bullets: string[];
   is_user_approved: boolean;
   submission_status: 'draft' | 'pending_review' | 'submitted' | 'failed';
+  mycompany_workitem_id?: number;
   ry_workitem_id?: number;
   last_error?: string;
+  existing_mycompany_item?: any;
   existing_rysun_item?: any;
 }
 

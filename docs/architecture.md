@@ -10,11 +10,11 @@
         │                       │
         │ AES-256-GCM           │ Low temp (0.2)
         ▼                       ▼
- [ SQLite Database ]    [ Google Gemini API ]
- (data/devtimesheet.db)  (gemini-2.5-flash)
+ [ MongoDB Atlas / Local ] [ Google Gemini API ]
+ (Collection-level seqs)   (gemini-2.5-flash)
         ▲                       ▲
         │                       │
- [ Client Azure DevOps ]  [ Rysun Azure DevOps ]
+ [ Client Azure DevOps ]  [ MyCompany Azure DevOps ]
  (Commits, PRs, Tasks)    (Resource Timesheet WIT)
 ```
 
@@ -41,4 +41,4 @@
 
 - **PAT Security**: Azure DevOps PATs are encrypted at rest using AES-256-GCM with a master key stored in environment configuration. They are never returned to the frontend or sent to the Gemini API.
 - **Multi-user Isolation**: All database queries and operations enforce strict `user_id` filtering.
-- **Idempotency**: Rysun work items are verified via WIQL query prior to submission to prevent duplicate entries.
+- **Idempotency**: MyCompany work items are verified via WIQL query prior to submission to prevent duplicate entries.

@@ -66,14 +66,14 @@ export const api = {
     return request<AdoCredential[]>('/credentials');
   },
 
-  async saveCredential(data: { provider: 'client' | 'rysun'; org_url: string; pat: string }): Promise<AdoCredential> {
+  async saveCredential(data: { provider: 'client' | 'mycompany' | 'rysun'; org_url: string; pat: string }): Promise<AdoCredential> {
     return request<AdoCredential>('/credentials', {
       method: 'POST',
       body: JSON.stringify(data),
     });
   },
 
-  async deleteCredential(provider: 'client' | 'rysun'): Promise<void> {
+  async deleteCredential(provider: 'client' | 'mycompany' | 'rysun'): Promise<void> {
     return request<void>(`/credentials/${provider}`, {
       method: 'DELETE',
     });
@@ -92,6 +92,14 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ start_date: startDate, end_date: endDate }),
     });
+  },
+
+  async getClientVcqmsContext(startDate?: string, endDate?: string): Promise<any> {
+    const params = new URLSearchParams();
+    if (startDate) params.append('start_date', startDate);
+    if (endDate) params.append('end_date', endDate);
+    const query = params.toString() ? '?' + params.toString() : '';
+    return request('/activities/client-context' + query);
   },
 
   async toggleExcludeActivity(activityId: number): Promise<ActivityItem> {
@@ -125,6 +133,16 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({
         date_str: dateStr,
+        custom_instruction: customInstruction,
+      }),
+    });
+  },
+
+  async generateWeeklySummary(mondayDateStr: string, customInstruction?: string): Promise<WeeklyReview> {
+    return request<WeeklyReview>('/summaries/generate-week', {
+      method: 'POST',
+      body: JSON.stringify({
+        monday_date_str: mondayDateStr,
         custom_instruction: customInstruction,
       }),
     });

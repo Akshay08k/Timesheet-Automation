@@ -1,23 +1,27 @@
-"""SQLAlchemy Base Declarative Model."""
+"""Base document model and helpers for MongoDB."""
 
 from datetime import datetime, timezone
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
-from sqlalchemy import DateTime
+from typing import Any, Dict, Optional
 
 
-class Base(DeclarativeBase):
-    pass
+def utc_now() -> datetime:
+    """Returns current datetime in UTC timezone."""
+    return datetime.now(timezone.utc)
 
 
-class TimestampMixin:
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
-        nullable=False,
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc),
-        nullable=False,
-    )
+class BaseDoc:
+    """Base class for domain models stored in MongoDB collections."""
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Serializes document to a dictionary suitable for MongoDB."""
+        d = dict(self.__dict__)
+        return d
+
+    @classmethod
+    def from_doc(cls, doc: Optional[Dict[str, Any]]):
+        """Constructs an instance from a MongoDB document."""
+        if doc is None:
+            return None
+        # Exclude MongoDB internal _id if model has id field
+        data = {k: v for k, v in doc.items() if k != "_id"}
+        return cls(**data)

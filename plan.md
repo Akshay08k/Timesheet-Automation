@@ -68,14 +68,9 @@ separate connection configurations and credentials.
 
 ## 3. Important Scope and Persistence Decision
 
-The product should be **local-first and lightweight**. Do not introduce
-PostgreSQL or a separately managed database server for the initial
-version.
+The product supports **MongoDB** (both MongoDB Atlas and local MongoDB instances) with **AES-256-GCM encryption at rest** for all sensitive credentials, Personal Access Tokens (PATs), and secrets.
 
-However, a multi-user application that stores PATs, user settings,
-drafts, sync checkpoints, and submission history needs durable local
-persistence. Use **SQLite** as an embedded database (a local file), not
-a database server.
+A multi-user application that stores PATs, user settings, drafts, sync checkpoints, and submission history needs durable persistence with strict multi-user isolation. Connection strings are configured via MONGODB_URI in .env.
 
 SQLite is used only for application state and operational records. It is
 not intended to become a large analytics warehouse.

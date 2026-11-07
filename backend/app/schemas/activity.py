@@ -1,7 +1,7 @@
 """Activity schemas."""
 
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field, ConfigDict
 
 
@@ -42,4 +42,19 @@ class ActivitySyncResponse(BaseModel):
     reviews: int
     branches: int
     date_range: str
+    last_synced_at: datetime
+
+
+class ClientVcqmsContextResponse(BaseModel):
+    status: str = 'success'
+    scope: str = 'VCQMS only'
+    target_organization: str
+    authenticated_user: str
+    date_range: str
+    repositories: List[dict]
+    commits: List[dict]
+    pull_requests: List[dict]
+    work_items: List[dict]
+    stats: dict
+    raw_logs_file: str = 'fetchClientLogs.txt'
     last_synced_at: datetime

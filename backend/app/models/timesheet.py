@@ -1,64 +1,98 @@
-"""Daily timesheet draft and AI summary versioning models."""
+"""Daily timesheet draft and AI summary versioning models for MongoDB."""
 
-from typing import List, Optional
-from sqlalchemy import String, Float, Boolean, Text, Integer, ForeignKey, UniqueConstraint
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-from backend.app.models.base import Base, TimestampMixin
-
-
-class DailyTimesheetDraft(Base, TimestampMixin):
-    __tablename__ = "daily_timesheet_drafts"
-    __table_args__ = (
-        UniqueConstraint("user_id", "date_str", name="uq_user_date"),
-    )
-
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-
-    date_str: Mapped[str] = mapped_column(String(10), nullable=False, index=True)  # YYYY-MM-DD
-    day_of_week: Mapped[str] = mapped_column(String(15), nullable=False)  # Monday, Tuesday, ...
-
-    # Summary fields
-    task_summary: Mapped[str] = mapped_column(Text, nullable=False, default="")
-    detailed_bullets_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # JSON array
-
-    # Project and area mapping
-    client_name: Mapped[str] = mapped_column(String(100), default="Visual Comfort and Co", nullable=False)
-    project_name: Mapped[str] = mapped_column(String(150), nullable=False, default="VCC - VCQMS Enhancements and InspectionDB")
-    area_path: Mapped[str] = mapped_column(String(200), nullable=False, default=r"Rysun Project Management\VC - VCQMS")
-    iteration_path: Mapped[str] = mapped_column(String(200), nullable=False, default="Rysun Project Management")
-
-    # Time and special-day flags
-    hours: Mapped[float] = mapped_column(Float, default=8.0, nullable=False)
-    ph: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)  # Public Holiday
-    leave: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    half_day: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    wfh: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-
-    # Rysun submission tracking
-    ry_workitem_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    submission_status: Mapped[str] = mapped_column(
-        String(30), default="draft", nullable=False
-    )  # draft, pending_review, submitted, failed
-    last_error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    is_user_approved: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-
-    # Relationships
-    user: Mapped["User"] = relationship("User", back_populates="timesheet_drafts")
-    summary_versions: Mapped[List["SummaryVersion"]] = relationship(
-        "SummaryVersion", back_populates="draft", cascade="all, delete-orphan", order_by="SummaryVersion.version_number"
-    )
+from datetime import datetime
+from typing import Optional, Dict, Any, List
+from backend.app.models.base import BaseDoc, utc_now
 
 
-class SummaryVersion(Base, TimestampMixin):
-    __tablename__ = "summary_versions"
+class DailyTimesheetDraft(BaseDoc):
+    """Daily timesheet draft document stored in MongoDB 'daily_timesheet_drafts' collection."""
 
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    draft_id: Mapped[int] = mapped_column(ForeignKey("daily_timesheet_drafts.id", ondelete="CASCADE"), nullable=False, index=True)
+    def __init__(
+        self,
+        id: int,
+        user_id: int,
+        date_str: str,
+        day_of_week: str,
+        task_summary: str = "",
+        detailed_bullets_json: Optional[str] = "[]",
+        client_name: str = "ClientCompany",
+        project_name: str = "ClientCompany - Core Enhancements",
+        area_path: str = r"MyCompany Project Management\ClientCompany",
+        iteration_path: str = "MyCompany Project Management",
+        hours: float = 8.0,
+        ph: bool = False,
+        leave: bool = False,
+        half_day: bool = False,
+        wfh: bool = False,
+        mycompany_workitem_id: Optional[int] = None,
+        ry_workitem_id: Optional[int] = None,
+        submission_status: str = "draft",
+        last_error: Optional[str] = None,
+        is_user_approved: bool = False,
+        created_at: Optional[datetime] = None,
+        updated_at: Optional[datetime] = None,
+        **kwargs,
+    ):
+        self.id = int(id)
+        self.user_id = int(user_id)
+        self.date_str = date_str
+        self.day_of_week = day_of_week
+        self.task_summary = task_summary
+        self.detailed_bullets_json = detailed_bullets_json
+        self.client_name = client_name
+        self.project_name = project_name
+        self.area_path = area_path
+        self.iteration_path = iteration_path
+        self.hours = float(hours)
+        self.ph = bool(ph)
+        self.leave = bool(leave)
+        self.half_day = bool(half_day)
+        self.wfh = bool(wfh)
+        resolved_wi = mycompany_workitem_id or ry_workitem_id or kwargs.get("workitem_id")
+        self.mycompany_workitem_id = resolved_wi
+        self.ry_workitem_id = resolved_wi
+        self.submission_status = submission_status
+        self.last_error = last_error
+        self.is_user_approved = bool(is_user_approved)
+        self.created_at = created_at or utc_now()
+        self.updated_at = updated_at or utc_now()
 
-    version_number: Mapped[int] = mapped_column(Integer, nullable=False)
-    source: Mapped[str] = mapped_column(String(30), nullable=False)  # "gemini-ai", "manual-edit", "rule-fallback"
-    summary_text: Mapped[str] = mapped_column(Text, nullable=False)
-    raw_ai_payload: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # JSON structured output
+    @classmethod
+    def from_doc(cls, doc: Optional[Dict[str, Any]]) -> Optional["DailyTimesheetDraft"]:
+        if not doc:
+            return None
+        data = {k: v for k, v in doc.items() if k != "_id"}
+        return cls(**data)
 
-    draft: Mapped["DailyTimesheetDraft"] = relationship("DailyTimesheetDraft", back_populates="summary_versions")
+
+class SummaryVersion(BaseDoc):
+    """AI summary version revision stored in MongoDB 'summary_versions' collection."""
+
+    def __init__(
+        self,
+        id: int,
+        draft_id: int,
+        version_number: int,
+        source: str,
+        summary_text: str,
+        raw_ai_payload: Optional[str] = None,
+        created_at: Optional[datetime] = None,
+        updated_at: Optional[datetime] = None,
+        **kwargs,
+    ):
+        self.id = int(id)
+        self.draft_id = int(draft_id)
+        self.version_number = int(version_number)
+        self.source = source
+        self.summary_text = summary_text
+        self.raw_ai_payload = raw_ai_payload
+        self.created_at = created_at or utc_now()
+        self.updated_at = updated_at or utc_now()
+
+    @classmethod
+    def from_doc(cls, doc: Optional[Dict[str, Any]]) -> Optional["SummaryVersion"]:
+        if not doc:
+            return None
+        data = {k: v for k, v in doc.items() if k != "_id"}
+        return cls(**data)

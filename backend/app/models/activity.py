@@ -1,42 +1,59 @@
-"""Activity item model for normalized engineering activities."""
+"""Activity item model for MongoDB 'activity_items' collection."""
 
 from datetime import datetime
-from typing import Optional
-from sqlalchemy import String, Boolean, DateTime, Text, ForeignKey, UniqueConstraint
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-from backend.app.models.base import Base, TimestampMixin
+from typing import Optional, Dict, Any
+from backend.app.models.base import BaseDoc, utc_now
 
 
-class ActivityItem(Base, TimestampMixin):
-    __tablename__ = "activity_items"
-    __table_args__ = (
-        UniqueConstraint("user_id", "source_type", "external_id", name="uq_user_source_ext_id"),
-    )
+class ActivityItem(BaseDoc):
+    """Normalized engineering activity stored in MongoDB."""
 
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    def __init__(
+        self,
+        id: int,
+        user_id: int,
+        source_type: str,
+        external_id: str,
+        occurred_at: datetime,
+        date_str: str,
+        title: str,
+        repository: Optional[str] = None,
+        project: Optional[str] = None,
+        branch: Optional[str] = None,
+        author_id: Optional[str] = None,
+        author_name: Optional[str] = None,
+        author_email: Optional[str] = None,
+        description: Optional[str] = None,
+        url: Optional[str] = None,
+        related_ids: Optional[str] = None,
+        is_excluded: bool = False,
+        created_at: Optional[datetime] = None,
+        updated_at: Optional[datetime] = None,
+        **kwargs,
+    ):
+        self.id = int(id)
+        self.user_id = int(user_id)
+        self.source_type = source_type
+        self.external_id = external_id
+        self.occurred_at = occurred_at
+        self.date_str = date_str
+        self.title = title
+        self.repository = repository
+        self.project = project
+        self.branch = branch
+        self.author_id = author_id
+        self.author_name = author_name
+        self.author_email = author_email
+        self.description = description
+        self.url = url
+        self.related_ids = related_ids
+        self.is_excluded = bool(is_excluded)
+        self.created_at = created_at or utc_now()
+        self.updated_at = updated_at or utc_now()
 
-    source_type: Mapped[str] = mapped_column(String(30), nullable=False, index=True)  # commit, pull_request, review, work_item, branch
-    external_id: Mapped[str] = mapped_column(String(150), nullable=False, index=True)
-    repository: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, index=True)
-    project: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    branch: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
-
-    author_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    author_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    author_email: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-
-    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
-    date_str: Mapped[str] = mapped_column(String(10), nullable=False, index=True)  # YYYY-MM-DD in local timezone
-
-    title: Mapped[str] = mapped_column(String(500), nullable=False)
-    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
-
-    # JSON-encoded string for related PR / work item IDs or extra metadata
-    related_ids: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-
-    is_excluded: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-
-    # Relationship
-    user: Mapped["User"] = relationship("User", back_populates="activities")
+    @classmethod
+    def from_doc(cls, doc: Optional[Dict[str, Any]]) -> Optional["ActivityItem"]:
+        if not doc:
+            return None
+        data = {k: v for k, v in doc.items() if k != "_id"}
+        return cls(**data)

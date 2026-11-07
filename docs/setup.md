@@ -2,12 +2,13 @@
 
 ## Prerequisites
 
-1. **Python 3.11+** (Tested and compatible with Python 3.14)
-2. **Node.js 18+** & npm
-3. **Google Gemini API Key** (from Google AI Studio)
-4. **Azure DevOps Personal Access Tokens**:
+1. **Python 3.11+**
+2. **MongoDB Connection** (MongoDB Atlas URI pasted into `MONGODB_URI` in `.env`, or local MongoDB)
+3. **Node.js 18+** & npm
+4. **Google Gemini API Key** (from Google AI Studio)
+5. **Azure DevOps Personal Access Tokens**:
    - **Client PAT**: Read scope for Code (commits/branches), Pull Requests, and Work Items.
-   - **Rysun PAT**: Read & Write scope for Work Items.
+   - **MyCompany PAT**: Read & Write scope for Work Items.
 
 ---
 
@@ -15,18 +16,35 @@
 
 ```bash
 # In repository root
-py -m venv backend/.venv
-.\backend\.venv\Scripts\pip install -r backend/requirements.txt
+python -m pip install -r backend/requirements.txt
 
 # Configure environment
 cp .env.example .env
-# Edit .env with your GEMINI_API_KEY and secure PAT_ENCRYPTION_KEY / SECRET_KEY
+# Edit .env with your MONGODB_URI, GEMINI_API_KEY, and SECRET_KEY
+```
 
+### MongoDB Configuration & Encryption
+
+In `.env`:
+```env
+# MongoDB Connection String (Atlas or local)
+MONGODB_URI=mongodb+srv://<username>:<password>@cluster0.mongodb.net/?retryWrites=true&w=majority
+MONGODB_DB_NAME=devtimesheet
+
+# Master key for AES-256-GCM encryption of Azure DevOps PATs and credentials at rest
+# (Automatically derived from SECRET_KEY if omitted, or a 32-byte base64 encoded key)
+PAT_ENCRYPTION_KEY=
+SECRET_KEY=your_secure_random_jwt_secret_key_min_32_characters
+```
+
+> **Security Note:** All Azure DevOps Personal Access Tokens (PATs) and credentials are encrypted at rest in MongoDB using AES-256-GCM with unique 96-bit nonces. Passwords are salted and hashed using bcrypt (12 rounds). Sensitive credentials are never returned in plaintext to the frontend or exposed over the API.
+
+```bash
 # Run tests
-.\backend\.venv\Scripts\python.exe -m pytest -v backend/tests
+python -m pytest -v backend/tests
 
 # Start backend server
-.\backend\.venv\Scripts\python.exe -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --reload
+python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
 Backend will be available at: `http://127.0.0.1:8000`  
@@ -48,15 +66,10 @@ Frontend will be available at: `http://localhost:5173`
 
 ## 3. First-Time User Onboarding
 
-1. Open `http://localhost:5173`.
-2. Register your user account (the first registered user is assigned Administrator privileges).
-3. Navigate to **Connections**:
-   - Provide your **Client Azure DevOps Organization URL** and **PAT**.
-   - Provide your **Rysun Azure DevOps Organization URL** and **PAT**.
-   - Click **Validate & Save**.
-4. Navigate to **Weekly Timesheet**:
-   - Select the current Monday--Friday week.
-   - Click **Sync Client Activity** to fetch commits, PRs, and work items.
-   - Click **Generate Summaries** to run the **Google Gemini API** summary analysis on your commits.
-   - Review and edit your summaries, log any manual non-code activities (meetings, reviews), and confirm hours.
-   - Click **Review & Submit to Rysun**.
+1. Open `http://localhost:5173` in your browser.
+2. Register a new user account. The first registered user automatically receives admin privileges.
+3. Log in with your new credentials.
+4. Click **Connections** in the navigation bar to configure:
+   - **Client Azure DevOps**: Organization URL + PAT.
+   - **MyCompany Azure DevOps**: Organization URL + PAT.
+5. Once validated, your PAT is encrypted with AES-256-GCM and stored securely in MongoDB.

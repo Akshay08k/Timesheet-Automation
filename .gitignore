@@ -58,3 +58,7 @@ dist/
 Thumbs.db
 Desktop.ini
 .DS_Store
+
+fetchClientLogs.txt
+
+.agents

@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from backend.app.config.settings import get_settings
-from backend.app.models.database import init_db
+from backend.app.models.database import init_db, close_db, check_database_health
 from backend.app.api.auth_routes import router as auth_router
 from backend.app.api.credential_routes import router as credential_router
 from backend.app.api.activity_routes import router as activity_router
@@ -15,16 +15,18 @@ from backend.app.api.timesheet_routes import router as timesheet_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Initialize SQLite database schema
+    # Initialize MongoDB collections and indexes
     init_db()
     yield
+    # Close connection pool on shutdown
+    close_db()
 
 
 settings = get_settings()
 
 app = FastAPI(
     title="DevTimesheet API",
-    description="Local-hosted multi-user timesheet automation with Azure DevOps & Google Gemini API",
+    description="Local-hosted multi-user timesheet automation with MongoDB, Azure DevOps & Google Gemini API",
     version="1.0.0",
     lifespan=lifespan,
 )
@@ -52,11 +54,29 @@ app.include_router(summary_router)
 app.include_router(timesheet_router)
 
 
+@app.get("/")
+def root():
+    db_status = check_database_health()
+    return {
+        "app": "DevTimesheet API",
+        "status": "running",
+        "database": "MongoDB Atlas" if not db_status.get("is_mock") else "In-Memory Mock",
+        "database_connected": db_status.get("connected", False),
+        "docs_url": "/docs",
+        "health_url": "/api/health",
+    }
+
+
 @app.get("/api/health")
 def health_check():
+    db_status = check_database_health()
     return {
-        "status": "healthy",
+        "status": "healthy" if db_status.get("connected") else "degraded",
         "app": "DevTimesheet",
+        "database": "MongoDB",
+        "database_connected": db_status.get("connected", False),
+        "is_mock_database": db_status.get("is_mock", False),
+        "database_details": db_status,
         "version": "1.0.0",
         "gemini_model": settings.gemini_model,
     }

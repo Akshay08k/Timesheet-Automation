@@ -35,9 +35,11 @@ class TimesheetEntryView(BaseModel):
     detailed_bullets: List[str]
     is_user_approved: bool
     submission_status: str
+    mycompany_workitem_id: Optional[int] = None
     ry_workitem_id: Optional[int] = None
     last_error: Optional[str] = None
-    existing_rysun_item: Optional[dict] = None  # Existing Rysun work item if detected
+    existing_mycompany_item: Optional[dict] = None
+    existing_rysun_item: Optional[dict] = None  # Existing MyCompany work item if detected
 
 
 class WeeklyReviewResponse(BaseModel):
