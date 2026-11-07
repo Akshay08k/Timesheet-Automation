@@ -1,5 +1,16 @@
 """FastAPI Application entrypoint for DevTimesheet."""
 
+import sys
+from pathlib import Path
+
+# Ensure root directory (containing 'backend') is in sys.path
+_current_dir = Path(__file__).resolve().parent
+_backend_dir = _current_dir.parent
+_root_dir = _backend_dir.parent
+for _p in (str(_root_dir), str(_backend_dir)):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
+
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -31,7 +42,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS Middleware for local frontend
+# CORS Middleware for local frontend & Vercel deployments
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -40,6 +51,7 @@ app.add_middleware(
         "http://localhost:3000",
         "http://127.0.0.1:3000",
     ],
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
