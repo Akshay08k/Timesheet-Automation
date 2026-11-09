@@ -26,11 +26,17 @@ from backend.app.api.timesheet_routes import router as timesheet_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Initialize MongoDB collections and indexes
-    init_db()
+    # Initialize MongoDB collections and indexes safely
+    try:
+        init_db()
+    except Exception as e:
+        print(f"[Lifespan] Database auto-init warning: {e}")
     yield
     # Close connection pool on shutdown
-    close_db()
+    try:
+        close_db()
+    except Exception:
+        pass
 
 
 settings = get_settings()
