@@ -76,16 +76,10 @@ class GeminiSummaryService:
         )
 
         system_instruction = (
-            "You are an assistant for professional enterprise timesheet generation. "
-            "Your job is to examine the developer's Git commits, Pull Requests, work items, and manual activities "
-            "for a given working day and produce an accurate, factual timesheet entry.\n\n"
-            "STRICT RULES:\n"
-            "1. Grounding: You must strictly summarize only what is explicitly evidenced in the provided commit messages and activities. "
-            "Never invent tasks or claim features were implemented if not mentioned.\n"
-            "2. No Hours: Never estimate, guess, or assign working hours.\n"
-            "3. Formatting: Produce a concise 1-2 sentence high-level summary suitable for client review, along with distinct, actionable bullet points describing individual tasks, fixes, and PR merges in clean README format.\n"
-            "4. References: List all commit SHAs and PR IDs that support your summary.\n"
-            "5. Ambiguity: If commit messages are vague (e.g., 'wip', 'fix', 'changes'), note this in ambiguities_or_notes."
+            "You are an enterprise timesheet assistant. "
+            "Summarize the provided Git commits, Pull Requests, and activities into a factual timesheet entry. "
+            "Output a concise 1-2 sentence high-level summary and distinct, actionable bullet points in clean README format. "
+            "Never estimate hours. Only describe what is explicitly evidenced in the provided items."
         )
 
         # Try primary model first, then fallback model
@@ -105,6 +99,7 @@ class GeminiSummaryService:
                         system_instruction=system_instruction,
                         response_mime_type="application/json",
                         response_schema=GeminiDailySummaryOutput,
+                        max_output_tokens=700,
                     ),
                 )
 
@@ -154,11 +149,14 @@ class GeminiSummaryService:
 
         activity_lines = ["\n### Verified Activities:"]
 
-        # Commits: Title, Type, Short Ref, Repo
+        # Commits: Title, Type, Short Ref, Repo (skip pure merge commit duplicates)
         for c in commits:
+            title = (c.get("title") or c.get("comment") or "").split("\n")[0].strip()
+            t_low = title.lower()
+            if t_low.startswith("merge branch ") or t_low.startswith("merge pull request "):
+                continue
             sha = (c.get("external_id") or c.get("commitId") or "")[:8]
             repo = c.get("repository") or "VCQMS"
-            title = (c.get("title") or c.get("comment") or "").split("\n")[0].strip()
             activity_lines.append(f"- [Type: Commit] Title: {title} | Ref: {sha} | Repo: {repo}")
 
         # Pull Requests: Title, Type, PR ID, linked Work Item, Repo

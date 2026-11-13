@@ -1,6 +1,7 @@
 """Timesheet orchestration service for drafts, Gemini AI summaries, and Rysun submission with MongoDB."""
 
 from datetime import datetime, timedelta, timezone
+from concurrent.futures import ThreadPoolExecutor
 import json
 from typing import List, Dict, Any, Optional
 from pymongo.database import Database
@@ -189,12 +190,17 @@ class TimesheetService:
         monday_date_str: str,
         custom_instruction: Optional[str] = None,
     ) -> List[DailyTimesheetDraft]:
-        """Generates AI timesheet summaries for all 5 weekdays in a single backend process."""
+        """Generates AI timesheet summaries for all 5 weekdays in parallel."""
         drafts = self.ensure_week_drafts(monday_date_str)
-        updated_drafts = []
-        for draft in drafts:
-            updated = self.generate_summary_for_date(draft.date_str, custom_instruction)
-            updated_drafts.append(updated)
+        
+        def _process_draft(draft: DailyTimesheetDraft) -> DailyTimesheetDraft:
+            return self.generate_summary_for_date(draft.date_str, custom_instruction)
+
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            updated_drafts = list(executor.map(_process_draft, drafts))
+
+        # Preserve Monday through Friday order
+        updated_drafts.sort(key=lambda d: d.date_str)
         return updated_drafts
 
     async def submit_draft_to_rysun(

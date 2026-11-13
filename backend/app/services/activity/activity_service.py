@@ -1,5 +1,6 @@
 """Activity service for normalizing, persisting, and querying developer activities with MongoDB."""
 
+import asyncio
 from datetime import datetime, timezone
 import json
 from typing import List, Dict, Any, Optional
@@ -288,13 +289,21 @@ class ActivityService:
 
                 total_prs += 1
 
-                # 3. Find WorkItems linked to this PR
+                # 3. Find WorkItems linked to this PR concurrently
                 linked_wis = await client_service.get_pull_request_work_items(repo_id, pr_id)
-                for wi_ref in linked_wis:
-                    wi_id = str(wi_ref.get("id"))
-                    if not wi_id:
+                valid_refs = [w for w in linked_wis if w.get("id")]
+                if valid_refs:
+                    raw_details = await asyncio.gather(
+                        *[client_service.get_work_item(str(w.get("id"))) for w in valid_refs],
+                        return_exceptions=True,
+                    )
+                else:
+                    raw_details = []
+
+                for wi_ref, wi_details in zip(valid_refs, raw_details):
+                    if isinstance(wi_details, Exception) or not wi_details:
                         continue
-                    wi_details = await client_service.get_work_item(wi_id)
+                    wi_id = str(wi_ref.get("id"))
                     fields = (wi_details or {}).get("fields", {})
                     wi_title = fields.get("System.Title") or f"WorkItem #{wi_id}"
                     wi_type = fields.get("System.WorkItemType") or "Task"
