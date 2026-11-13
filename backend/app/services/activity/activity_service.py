@@ -96,11 +96,12 @@ class ActivityService:
         all_repos = await client_service.get_repositories()
         print(f"[Azure DevOps Sync] Discovered {len(all_repos)} total repositories in client organization.")
 
-        # STRICT USER SCOPE: ONLY search in the VCQMS repository
+        # USER SCOPE: Search in VCQMS and RMAFEModernization repositories
         vcqms_repos = [
             r for r in all_repos
             if "vcqms" in (r.get("name") or "").lower()
             or "vcqms" in (r.get("project", {}).get("name") or "").lower()
+            or "rmafemodernization" in (r.get("name") or "").lower()
         ]
 
         log_client_fetch(
@@ -108,23 +109,23 @@ class ActivityService:
             f"{cred.org_url}/_apis/git/repositories",
             200,
             {
-                "scope_enforced": "VCQMS only",
+                "scope_enforced": "VCQMS and RMAFEModernization",
                 "total_org_repos": len(all_repos),
-                "matched_vcqms_repos": [r.get("name") for r in vcqms_repos],
+                "matched_repos": [r.get("name") for r in vcqms_repos],
                 "all_repo_names": [r.get("name") for r in all_repos],
             },
         )
 
         if not vcqms_repos:
             msg = (
-                f"[Azure DevOps Sync Warning] No repository containing 'VCQMS' was found among {len(all_repos)} repos. "
+                f"[Azure DevOps Sync Warning] No repository containing 'VCQMS' or 'RMAFEModernization' was found among {len(all_repos)} repos. "
                 f"Available repos: {[r.get('name') for r in all_repos[:10]]}"
             )
             print(msg)
             repos_to_scan = []
         else:
             repos_to_scan = vcqms_repos
-            print(f"[Azure DevOps Sync] Scope narrowed to {len(repos_to_scan)} VCQMS repository(ies): {[r.get('name') for r in repos_to_scan]}\n")
+            print(f"[Azure DevOps Sync] Scope narrowed to {len(repos_to_scan)} repository(ies): {[r.get('name') for r in repos_to_scan]}\n")
 
         total_commits = 0
         total_prs = 0
