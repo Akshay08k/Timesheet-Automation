@@ -268,6 +268,27 @@ export const WeeklyTimesheetView: React.FC<WeeklyTimesheetViewProps> = ({ select
         hasAlreadySubmitted
       );
       const createdCount = results.filter((r) => r.status === 'created' || r.status === 'updated').length;
+      const alreadySubmittedItems = results.filter((r) => r.status === 'already_submitted');
+
+      if (alreadySubmittedItems.length > 0 && createdCount === 0) {
+        const confirmUpdateAll = window.confirm(
+          `${alreadySubmittedItems.length} Resource Timesheet(s) already exist in Rysun Azure DevOps for your account. Do you want to update them with your current approved summaries?`
+        );
+        if (confirmUpdateAll) {
+          const forceResults = await api.submitWeek(
+            approvedEntries.map((e) => e.id),
+            true
+          );
+          const forceUpdatedCount = forceResults.filter((r) => r.status === 'created' || r.status === 'updated').length;
+          setStatusMessage({
+            type: 'success',
+            text: `Successfully updated ${forceUpdatedCount}/${forceResults.length} timesheets in Rysun Azure DevOps!`,
+          });
+          loadReview();
+          return;
+        }
+      }
+
       setStatusMessage({
         type: 'success',
         text: `Successfully processed ${createdCount}/${results.length} timesheets in Rysun Azure DevOps!`,

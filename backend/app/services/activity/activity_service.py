@@ -74,9 +74,10 @@ class ActivityService:
                 return True
 
             keywords = set(filter(None, [w for w in (user_fullname + " " + id_name).split() if len(w) > 2]))
-            keywords.update(["akshay", "komale", "komle"])
+            if user_username:
+                keywords.add(user_username.lower())
             match_count = sum(1 for kw in keywords if kw in an or kw in ae)
-            if match_count >= 1 and ("akshay" in an or "akshay" in ae):
+            if match_count >= 1 and any(kw in an or kw in ae for kw in keywords):
                 return True
 
             return False

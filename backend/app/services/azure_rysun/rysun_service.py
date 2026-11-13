@@ -56,20 +56,90 @@ class AzureRysunService:
                 "error": f"Failed to retrieve Resource Timesheet fields: HTTP {resp.status_code}",
             }
 
+    def _matches_target_user(
+        self,
+        fields: Dict[str, Any],
+        date_str: str,
+        user_identity: Optional[str] = None,
+        user_email: Optional[str] = None,
+    ) -> bool:
+        """Validates that a candidate Resource Timesheet work item strictly matches the date and target user."""
+        title = (fields.get("System.Title") or "").lower()
+        if date_str.lower() not in title:
+            custom_date = (fields.get("Custom.Date") or "").lower()
+            if date_str.lower() not in custom_date:
+                return False
+
+        assigned_obj = fields.get("System.AssignedTo") or {}
+        assigned_name = (assigned_obj.get("displayName") or "").lower() if isinstance(assigned_obj, dict) else str(assigned_obj).lower()
+        assigned_email = (assigned_obj.get("uniqueName") or "").lower() if isinstance(assigned_obj, dict) else ""
+
+        created_obj = fields.get("System.CreatedBy") or {}
+        created_name = (created_obj.get("displayName") or "").lower() if isinstance(created_obj, dict) else str(created_obj).lower()
+        created_email = (created_obj.get("uniqueName") or "").lower() if isinstance(created_obj, dict) else ""
+
+        # Collect user matching keywords/tokens
+        tokens = set()
+        if user_identity:
+            ident_clean = user_identity.lower().strip()
+            tokens.add(ident_clean)
+            for part in ident_clean.split():
+                if len(part) >= 3:
+                    tokens.add(part)
+        if user_email:
+            email_clean = user_email.lower().strip()
+            tokens.add(email_clean)
+            prefix = email_clean.split("@")[0]
+            if len(prefix) >= 3:
+                tokens.add(prefix)
+
+        if not tokens:
+            return True
+
+        for tok in tokens:
+            if tok in title:
+                return True
+            if tok in assigned_name or (assigned_email and tok in assigned_email):
+                return True
+            if tok in created_name or (created_email and tok in created_email):
+                return True
+
+        return False
+
     async def search_existing_timesheet(
         self,
         date_str: str,
-        user_identity: str,
+        user_identity: Optional[str] = None,
+        user_email: Optional[str] = None,
         project: str = "Rysun Project Management",
     ) -> Optional[Dict[str, Any]]:
         """Queries Rysun using WIQL to find if a Resource Timesheet work item already exists for this date and user."""
+        clean_date = date_str.replace("'", "''").strip()
+        clauses = [
+            "[System.WorkItemType] = 'Resource Timesheet'",
+            f"[System.Title] CONTAINS '{clean_date}'",
+        ]
+
+        user_clauses = ["[System.AssignedTo] = @Me"]
+        if user_identity and user_identity.strip():
+            clean_user = user_identity.replace("'", "''").strip()
+            user_clauses.append(f"[System.Title] CONTAINS '{clean_user}'")
+            first_name = clean_user.split()[0]
+            if len(first_name) >= 3 and first_name != clean_user:
+                user_clauses.append(f"[System.Title] CONTAINS '{first_name}'")
+        if user_email and user_email.strip():
+            clean_email = user_email.replace("'", "''").strip()
+            user_clauses.append(f"[System.Title] CONTAINS '{clean_email}'")
+
+        clauses.append(f"({' OR '.join(user_clauses)})")
+        where_stmt = " AND ".join(clauses)
+
         url = f"{self.org_url}/{project}/_apis/wit/wiql?api-version=7.1"
         query = {
             "query": f"""
                 SELECT [System.Id], [System.Title], [System.State], [System.AssignedTo]
                 FROM WorkItems
-                WHERE [System.WorkItemType] = 'Resource Timesheet'
-                AND [System.Title] CONTAINS '{date_str}'
+                WHERE {where_stmt}
                 ORDER BY [System.CreatedDate] DESC
             """
         }
@@ -83,15 +153,22 @@ class AzureRysunService:
             if not work_items:
                 return None
 
-            first_id = work_items[0].get("id")
-            # Fetch details for the found item
-            item_resp = await client.get(
-                f"{self.org_url}/_apis/wit/workitems/{first_id}?api-version=7.1",
-                headers=self.auth_header,
-            )
-            if item_resp.status_code == 200:
-                return item_resp.json()
-            return {"id": first_id}
+            # Verify found work items to strictly ensure they belong to this user
+            for item in work_items[:5]:
+                first_id = item.get("id")
+                if not first_id:
+                    continue
+                item_resp = await client.get(
+                    f"{self.org_url}/_apis/wit/workitems/{first_id}?api-version=7.1",
+                    headers=self.auth_header,
+                )
+                if item_resp.status_code == 200:
+                    item_data = item_resp.json()
+                    fields = item_data.get("fields", {})
+                    if self._matches_target_user(fields, date_str, user_identity, user_email):
+                        return item_data
+
+            return None
 
     async def create_resource_timesheet(
         self,

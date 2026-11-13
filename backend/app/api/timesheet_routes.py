@@ -61,7 +61,8 @@ async def get_weekly_review(
             try:
                 res = await rysun_service.search_existing_timesheet(
                     date_str=d_date,
-                    user_identity=cred.resolved_identity_name or current_user.full_name,
+                    user_identity=cred.resolved_identity_name or current_user.full_name or current_user.username,
+                    user_email=cred.resolved_identity_email or current_user.email,
                 )
                 return d_date, res
             except Exception:
@@ -257,9 +258,10 @@ async def submit_single_day(
 ):
     """Submits a single day timesheet to Rysun Azure DevOps."""
     svc = TimesheetService(db, current_user.id)
+    user_name = current_user.full_name or current_user.username
     result = await svc.submit_draft_to_rysun(
         draft_id=req.draft_id,
-        user_name=current_user.full_name,
+        user_name=user_name,
         force_update_existing=req.force_update_existing,
     )
     return SubmissionResult(**result)
@@ -273,11 +275,12 @@ async def submit_week(
 ):
     """Submits approved timesheet drafts for the week to Rysun Azure DevOps."""
     svc = TimesheetService(db, current_user.id)
+    user_name = current_user.full_name or current_user.username
     results = []
     for draft_id in req.draft_ids:
         res = await svc.submit_draft_to_rysun(
             draft_id=draft_id,
-            user_name=current_user.full_name,
+            user_name=user_name,
             force_update_existing=req.force_update_existing,
         )
         results.append(SubmissionResult(**res))

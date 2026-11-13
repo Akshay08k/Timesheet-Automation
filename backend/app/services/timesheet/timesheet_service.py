@@ -234,10 +234,15 @@ class TimesheetService:
         cred = AdoCredential.from_doc(cred_doc)
         rysun_service = AzureRysunService(cred.org_url, cred.encrypted_pat)
 
-        # Check existing
+        user_doc = self.db.users.find_one({"id": self.user_id}) or {}
+        user_identity = cred.resolved_identity_name or user_name or user_doc.get("full_name") or user_doc.get("username")
+        user_email = cred.resolved_identity_email or user_doc.get("email")
+
+        # Check existing scoped strictly to this user
         existing = await rysun_service.search_existing_timesheet(
             date_str=draft.date_str,
-            user_identity=cred.resolved_identity_name or user_name,
+            user_identity=user_identity,
+            user_email=user_email,
         )
 
         # Prepare Task Summary in README (Markdown) format:
@@ -266,7 +271,8 @@ class TimesheetService:
         project_val = draft.project_name or self.settings.default_project_name
         area_path_val = draft.area_path or self.settings.default_area_path
 
-        title = f"{user_name} - {draft.date_str}"
+        preferred_name = user_name or cred.resolved_identity_name or user_doc.get("full_name") or user_doc.get("username")
+        title = f"{preferred_name} - {draft.date_str}"
         fields_patch = [
             {"op": "add", "path": "/fields/System.Title", "value": title},
             {"op": "add", "path": "/fields/System.AreaPath", "value": area_path_val},
@@ -274,7 +280,7 @@ class TimesheetService:
             {
                 "op": "add",
                 "path": "/fields/System.AssignedTo",
-                "value": cred.resolved_identity_email or cred.resolved_identity_name or user_name,
+                "value": cred.resolved_identity_email or user_email or cred.resolved_identity_name or preferred_name,
             },
         ]
 
