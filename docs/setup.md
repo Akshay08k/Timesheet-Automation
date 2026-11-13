@@ -8,7 +8,7 @@
 4. **Google Gemini API Key** (from Google AI Studio)
 5. **Azure DevOps Personal Access Tokens**:
    - **Client PAT**: Read scope for Code (commits/branches), Pull Requests, and Work Items.
-   - **MyCompany PAT**: Read & Write scope for Work Items.
+   - **Rysun PAT**: Read & Write scope for Work Items.
 
 ---
 
@@ -71,5 +71,5 @@ Frontend will be available at: `http://localhost:5173`
 3. Log in with your new credentials.
 4. Click **Connections** in the navigation bar to configure:
    - **Client Azure DevOps**: Organization URL + PAT.
-   - **MyCompany Azure DevOps**: Organization URL + PAT.
+   - **Rysun Azure DevOps**: Organization URL + PAT.
 5. Once validated, your PAT is encrypted with AES-256-GCM and stored securely in MongoDB.

@@ -95,33 +95,33 @@ class Settings(BaseSettings):
 
     # Azure DevOps Defaults
     default_client_org_url: str = Field(
-        default="https://dev.azure.com/ClientCompany",
+        default="https://dev.azure.com/VisualComfortCo",
         validation_alias=AliasChoices("DEFAULT_CLIENT_ORG_URL", "DEFAULT_CLIENTCOMPANY_ORG_URL"),
     )
-    default_mycompany_org_url: str = Field(
-        default="https://dev.azure.com/MyCompany",
-        validation_alias=AliasChoices("DEFAULT_MYCOMPANY_ORG_URL", "DEFAULT_RYSUN_ORG_URL", "DEFAULT_COMPANY_ORG_URL"),
+    default_rysun_org_url: str = Field(
+        default="https://dev.azure.com/Rysun",
+        validation_alias=AliasChoices("DEFAULT_RYSUN_ORG_URL", "DEFAULT_MYCOMPANY_ORG_URL", "DEFAULT_COMPANY_ORG_URL"),
     )
-    # Compatibility alias for default_rysun_org_url
+    # Compatibility alias for default_mycompany_org_url
     @property
-    def default_rysun_org_url(self) -> str:
-        return self.default_mycompany_org_url
+    def default_mycompany_org_url(self) -> str:
+        return self.default_rysun_org_url
 
     # Default Timesheet Project Metadata
     default_client_name: str = Field(
-        default="ClientCompany",
+        default="Visual Comfort and Co",
         validation_alias=AliasChoices("DEFAULT_CLIENT_NAME"),
     )
     default_iteration: str = Field(
-        default="MyCompany Project Management",
+        default="Rysun Project Management",
         validation_alias=AliasChoices("DEFAULT_ITERATION"),
     )
     default_project_name: str = Field(
-        default="ClientCompany - Core Enhancements",
+        default="VCC - VCQMS Enhancements and InspectionDB",
         validation_alias=AliasChoices("DEFAULT_PROJECT_NAME"),
     )
     default_area_path: str = Field(
-        default=r"MyCompany Project Management\ClientCompany",
+        default=r"Rysun Project Management\VC - VCQMS",
         validation_alias=AliasChoices("DEFAULT_AREA_PATH"),
     )
 

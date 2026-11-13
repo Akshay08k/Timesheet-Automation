@@ -14,8 +14,7 @@ from backend.app.schemas.credential import (
 )
 from backend.app.security.crypto import encrypt_pat
 from backend.app.services.azure_client.client_service import AzureClientService
-from backend.app.services.azure_mycompany.mycompany_service import AzureMyCompanyService
-from backend.app.services.azure_rysun.rysun_service import AzureRysunService
+from backend.app.services.azure_rysun.rysun_service import AzureRysunService, AzureMyCompanyService
 from backend.app.api.deps import get_current_user
 
 router = APIRouter(prefix="/api/credentials", tags=["credentials"])
@@ -55,8 +54,8 @@ async def save_credential(
             resolved_name = info.get("name")
             resolved_email = info.get("email")
             is_valid = True
-        elif cred_in.provider in ("mycompany", "rysun"):
-            svc = AzureMyCompanyService(cred_in.org_url, encrypted)
+        elif cred_in.provider in ("rysun", "mycompany"):
+            svc = AzureRysunService(cred_in.org_url, encrypted)
             info = await svc.validate_connection()
             resolved_id = info.get("id")
             resolved_name = info.get("name")

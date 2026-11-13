@@ -39,7 +39,7 @@ class TimesheetEntryView(BaseModel):
     ry_workitem_id: Optional[int] = None
     last_error: Optional[str] = None
     existing_mycompany_item: Optional[dict] = None
-    existing_rysun_item: Optional[dict] = None  # Existing MyCompany work item if detected
+    existing_rysun_item: Optional[dict] = None  # Existing Rysun work item if detected
 
 
 class WeeklyReviewResponse(BaseModel):

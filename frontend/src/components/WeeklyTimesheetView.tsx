@@ -20,12 +20,12 @@ interface WeeklyTimesheetViewProps {
 
 const PROJECTS = [
   {
-    name: 'ClientCompany - Core Enhancements',
-    area: 'MyCompany Project Management\\ClientCompany - Core',
+    name: 'VCC - VCQMS Enhancements and InspectionDB',
+    area: 'Rysun Project Management\\VC - VCQMS',
   },
   {
-    name: 'ClientCompany - Modernization',
-    area: 'MyCompany Project Management\\ClientCompany - Modernization',
+    name: 'VCC - RMA Modernization',
+    area: 'Rysun Project Management\\VCC - RMA Modernization',
   },
 ];
 
@@ -208,7 +208,7 @@ export const WeeklyTimesheetView: React.FC<WeeklyTimesheetViewProps> = ({ select
 
     if (entry && entry.submission_status === 'submitted' && !force) {
       const confirmUpdate = window.confirm(
-        `Resource Timesheet #${entry.ry_workitem_id || ''} for ${entry.date_str} is already submitted. Do you want to update it in MyCompany Azure DevOps with this point-wise README format summary?`
+        `Resource Timesheet #${entry.ry_workitem_id || ''} for ${entry.date_str} is already submitted. Do you want to update it in Rysun Azure DevOps with this point-wise README format summary?`
       );
       if (!confirmUpdate) return;
       force = true;
@@ -218,7 +218,7 @@ export const WeeklyTimesheetView: React.FC<WeeklyTimesheetViewProps> = ({ select
       const res = await api.submitSingleDay(draftId, force);
       if (res.status === 'already_submitted') {
         const confirmUpdate = window.confirm(
-          `A Resource Timesheet work item (#${res.workitem_id}) already exists for this date in MyCompany. Do you want to update it with your current approved summary?`
+          `A Resource Timesheet work item (#${res.workitem_id}) already exists for this date in Rysun. Do you want to update it with your current approved summary?`
         );
         if (confirmUpdate) {
           handleSubmitSingleDay(draftId, true);
@@ -255,8 +255,8 @@ export const WeeklyTimesheetView: React.FC<WeeklyTimesheetViewProps> = ({ select
 
     const hasAlreadySubmitted = approvedEntries.some((e) => e.submission_status === 'submitted');
     const confirmMessage = hasAlreadySubmitted
-      ? `Submit / update ${approvedEntries.length} approved daily timesheets to MyCompany Azure DevOps (including updating submitted entries with your current point-wise README summaries)?`
-      : `Submit ${approvedEntries.length} approved daily timesheets to MyCompany Azure DevOps?`;
+      ? `Submit / update ${approvedEntries.length} approved daily timesheets to Rysun Azure DevOps (including updating submitted entries with your current point-wise README summaries)?`
+      : `Submit ${approvedEntries.length} approved daily timesheets to Rysun Azure DevOps?`;
 
     const confirmSubmit = window.confirm(confirmMessage);
     if (!confirmSubmit) return;
@@ -270,7 +270,7 @@ export const WeeklyTimesheetView: React.FC<WeeklyTimesheetViewProps> = ({ select
       const createdCount = results.filter((r) => r.status === 'created' || r.status === 'updated').length;
       setStatusMessage({
         type: 'success',
-        text: `Successfully processed ${createdCount}/${results.length} timesheets in MyCompany Azure DevOps!`,
+        text: `Successfully processed ${createdCount}/${results.length} timesheets in Rysun Azure DevOps!`,
       });
       loadReview();
     } catch (err: any) {
@@ -326,7 +326,7 @@ export const WeeklyTimesheetView: React.FC<WeeklyTimesheetViewProps> = ({ select
             className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 rounded-lg shadow-xs transition"
           >
             <Send className="w-3.5 h-3.5" />
-            Submit Approved to MyCompany
+            Submit Approved to Rysun
           </button>
         </div>
       </div>
@@ -378,11 +378,11 @@ export const WeeklyTimesheetView: React.FC<WeeklyTimesheetViewProps> = ({ select
                     {/* Submission status pill */}
                     {isSubmitted ? (
                       <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-800 bg-emerald-100/70 border border-emerald-300 px-2 py-0.5 rounded-full">
-                        <CheckCircle2 className="w-3 h-3" /> Submitted in MyCompany {entry.ry_workitem_id && `(#${entry.ry_workitem_id})`}
+                        <CheckCircle2 className="w-3 h-3" /> Submitted in Rysun {entry.ry_workitem_id && `(#${entry.ry_workitem_id})`}
                       </span>
                     ) : entry.existing_rysun_item ? (
                       <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-800 bg-amber-50 border border-amber-300 px-2 py-0.5 rounded-full">
-                        <AlertCircle className="w-3.5 h-3.5" /> Exists in MyCompany (#{entry.existing_rysun_item.id})
+                        <AlertCircle className="w-3.5 h-3.5" /> Exists in Rysun (#{entry.existing_rysun_item.id})
                       </span>
                     ) : (
                       <span className="text-[11px] font-semibold text-slate-500 bg-slate-200/60 px-2 py-0.5 rounded-full">
@@ -479,7 +479,7 @@ export const WeeklyTimesheetView: React.FC<WeeklyTimesheetViewProps> = ({ select
                     </div>
 
                     <div>
-                      <label className="block text-slate-500 font-semibold mb-1">MyCompany Area Path</label>
+                      <label className="block text-slate-500 font-semibold mb-1">Rysun Area Path</label>
                       <input
                         type="text"
                         value={entry.area_path}
@@ -522,9 +522,9 @@ export const WeeklyTimesheetView: React.FC<WeeklyTimesheetViewProps> = ({ select
 
                     <textarea
                       rows={6}
-                      value={entry.task_summary}
-                      onChange={(e) => handleUpdateField(entry.id, { task_summary: e.target.value }, 400)}
-                      placeholder="Daily timesheet summary for MyCompany Resource Timesheet (Markdown / README format with - bullet points)..."
+                      value={entry.task_summary ?? ''}
+                      onChange={(e) => handleUpdateField(entry.id, { task_summary: e.target.value }, 800)}
+                      placeholder="Daily timesheet summary for Rysun Resource Timesheet (Markdown / README format with - bullet points)..."
                       className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-hidden leading-relaxed font-sans"
                     />
 
@@ -605,7 +605,7 @@ export const WeeklyTimesheetView: React.FC<WeeklyTimesheetViewProps> = ({ select
                         }`}
                       >
                         <Send className="w-3 h-3" />
-                        {isSubmitted ? 'Update in MyCompany' : 'Submit Day to MyCompany'}
+                        {isSubmitted ? 'Update in Rysun' : 'Submit Day to Rysun'}
                       </button>
                     </div>
                   </div>

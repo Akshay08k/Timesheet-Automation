@@ -14,7 +14,7 @@
  (Collection-level seqs)   (gemini-2.5-flash)
         ▲                       ▲
         │                       │
- [ Client Azure DevOps ]  [ MyCompany Azure DevOps ]
+ [ Client Azure DevOps ]  [ Rysun Azure DevOps ]
  (Commits, PRs, Tasks)    (Resource Timesheet WIT)
 ```
 
@@ -41,4 +41,4 @@
 
 - **PAT Security**: Azure DevOps PATs are encrypted at rest using AES-256-GCM with a master key stored in environment configuration. They are never returned to the frontend or sent to the Gemini API.
 - **Multi-user Isolation**: All database queries and operations enforce strict `user_id` filtering.
-- **Idempotency**: MyCompany work items are verified via WIQL query prior to submission to prevent duplicate entries.
+- **Idempotency**: Rysun work items are verified via WIQL query prior to submission to prevent duplicate entries.

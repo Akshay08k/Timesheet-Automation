@@ -49,7 +49,7 @@ class GeminiSummaryService:
                 detailed_bullets=[],
                 referenced_commit_shas=[],
                 referenced_pr_ids=[],
-                suggested_project="ClientCompany - Core Enhancements",
+                suggested_project="VCC - VCQMS Enhancements and InspectionDB",
                 ambiguities_or_notes="No activities recorded for this date. Click 'Sync Activities from Azure DevOps' to fetch commits/PRs.",
             )
 
@@ -157,7 +157,7 @@ class GeminiSummaryService:
         # Commits: Title, Type, Short Ref, Repo
         for c in commits:
             sha = (c.get("external_id") or c.get("commitId") or "")[:8]
-            repo = c.get("repository") or "ClientRepository"
+            repo = c.get("repository") or "VCQMS"
             title = (c.get("title") or c.get("comment") or "").split("\n")[0].strip()
             activity_lines.append(f"- [Type: Commit] Title: {title} | Ref: {sha} | Repo: {repo}")
 
@@ -166,7 +166,7 @@ class GeminiSummaryService:
             pr_id = str(pr.get("external_id") or pr.get("pullRequestId") or "").lstrip("#")
             title = (pr.get("title") or "").split("\n")[0].strip()
             status = pr.get("status") or "active"
-            repo = pr.get("repository") or "ClientRepository"
+            repo = pr.get("repository") or "VCQMS"
             related = pr.get("related_ids") or ""
             linked_info = f" | Linked: {related}" if related else ""
             activity_lines.append(f"- [Type: Pull Request] Title: {title} | Ref: PR #{pr_id} ({status}){linked_info} | Repo: {repo}")
@@ -175,7 +175,7 @@ class GeminiSummaryService:
         for wi in work_items:
             wi_id = str(wi.get("external_id") or wi.get("id") or "")
             title = (wi.get("title") or "").split("\n")[0].strip()
-            repo = wi.get("repository") or "ClientRepository"
+            repo = wi.get("repository") or "VCQMS"
             related = wi.get("related_ids") or ""
             linked_info = f" | Linked: {related}" if related else ""
             activity_lines.append(f"- [Type: Work Item] Title: {title} | Ref: WorkItem #{wi_id}{linked_info} | Repo: {repo}")
@@ -208,7 +208,7 @@ class GeminiSummaryService:
         bullets = []
         commit_shas = []
         pr_ids = []
-        suggested_project = "ClientCompany - Core Enhancements"
+        suggested_project = "VCC - VCQMS Enhancements and InspectionDB"
 
         for c in commits:
             sha = c.get("external_id") or c.get("commitId") or ""
@@ -224,9 +224,9 @@ class GeminiSummaryService:
                 commit_shas.append(sha[:8])
             repo = c.get("repository", "").lower()
             if "secondary" in repo or "rma" in repo:
-                suggested_project = "ClientCompany - Secondary Project"
+                suggested_project = "VCC - RMA Modernization"
             else:
-                suggested_project = "ClientCompany - Core Enhancements"
+                suggested_project = "VCC - VCQMS Enhancements and InspectionDB"
 
         for pr in pull_requests:
             pr_id = str(pr.get("external_id") or pr.get("pullRequestId") or "")
@@ -257,6 +257,6 @@ class GeminiSummaryService:
             detailed_bullets=bullets,
             referenced_commit_shas=commit_shas,
             referenced_pr_ids=pr_ids,
-            suggested_project=suggested_project or "ClientCompany - Core Enhancements",
+            suggested_project=suggested_project or "VCC - VCQMS Enhancements and InspectionDB",
             ambiguities_or_notes=note,
         )

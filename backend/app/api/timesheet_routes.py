@@ -19,8 +19,7 @@ from backend.app.schemas.timesheet import (
     SubmissionResult,
 )
 from backend.app.services.timesheet.timesheet_service import TimesheetService
-from backend.app.services.azure_mycompany.mycompany_service import AzureMyCompanyService
-from backend.app.services.azure_rysun.rysun_service import AzureRysunService
+from backend.app.services.azure_rysun.rysun_service import AzureRysunService, AzureMyCompanyService
 from backend.app.api.deps import get_current_user
 
 router = APIRouter(prefix="/api/timesheets", tags=["timesheets"])
@@ -37,30 +36,30 @@ async def get_weekly_review(
     svc = TimesheetService(db, current_user.id)
     drafts = svc.ensure_week_drafts(monday_date_str)
 
-    # Check MyCompany credential (supports both 'mycompany' and 'rysun' provider keys)
+    # Check Rysun credential (supports both 'rysun' and 'mycompany' provider keys)
     cred_doc = db.ado_credentials.find_one(
         {
             "user_id": current_user.id,
-            "provider": {"$in": ["mycompany", "rysun"]},
+            "provider": {"$in": ["rysun", "mycompany"]},
             "is_valid": True,
         }
     )
 
-    mycompany_service = None
+    rysun_service = None
     cred = None
     if cred_doc:
         cred = AdoCredential.from_doc(cred_doc)
         try:
-            mycompany_service = AzureMyCompanyService(cred.org_url, cred.encrypted_pat)
+            rysun_service = AzureRysunService(cred.org_url, cred.encrypted_pat)
         except Exception:
             pass
 
-    # Check existing records in MyCompany ONLY if explicitly requested, run in PARALLEL
+    # Check existing records in Rysun ONLY if explicitly requested, run in PARALLEL
     existing_map = {}
-    if check_remote and mycompany_service and cred:
+    if check_remote and rysun_service and cred:
         async def check_day(d_date: str):
             try:
-                res = await mycompany_service.search_existing_timesheet(
+                res = await rysun_service.search_existing_timesheet(
                     date_str=d_date,
                     user_identity=cred.resolved_identity_name or current_user.full_name,
                 )
@@ -160,17 +159,27 @@ def update_timesheet_draft(
         update_fields["task_summary"] = patch_in.task_summary
         draft.task_summary = patch_in.task_summary
 
-        # Record manual edit version
-        version_count = db.summary_versions.count_documents({"draft_id": draft.id})
-        v_id = get_next_sequence_value(db, "summary_versions")
-        version = SummaryVersion(
-            id=v_id,
-            draft_id=draft.id,
-            version_number=version_count + 1,
-            source="manual-edit",
-            summary_text=patch_in.task_summary,
+        # Record or update manual edit version without spamming versions
+        last_version = db.summary_versions.find_one(
+            {"draft_id": draft.id},
+            sort=[("version_number", -1)]
         )
-        db.summary_versions.insert_one(version.to_dict())
+        if last_version and last_version.get("source") == "manual-edit":
+            db.summary_versions.update_one(
+                {"id": last_version["id"]},
+                {"$set": {"summary_text": patch_in.task_summary}}
+            )
+        else:
+            version_count = db.summary_versions.count_documents({"draft_id": draft.id})
+            v_id = get_next_sequence_value(db, "summary_versions")
+            version = SummaryVersion(
+                id=v_id,
+                draft_id=draft.id,
+                version_number=version_count + 1,
+                source="manual-edit",
+                summary_text=patch_in.task_summary,
+            )
+            db.summary_versions.insert_one(version.to_dict())
 
     if patch_in.detailed_bullets is not None:
         update_fields["detailed_bullets_json"] = json.dumps(patch_in.detailed_bullets)
@@ -246,9 +255,9 @@ async def submit_single_day(
     current_user: User = Depends(get_current_user),
     db: Database = Depends(get_db),
 ):
-    """Submits a single day timesheet to MyCompany Azure DevOps."""
+    """Submits a single day timesheet to Rysun Azure DevOps."""
     svc = TimesheetService(db, current_user.id)
-    result = await svc.submit_draft_to_mycompany(
+    result = await svc.submit_draft_to_rysun(
         draft_id=req.draft_id,
         user_name=current_user.full_name,
         force_update_existing=req.force_update_existing,
@@ -262,11 +271,11 @@ async def submit_week(
     current_user: User = Depends(get_current_user),
     db: Database = Depends(get_db),
 ):
-    """Submits approved timesheet drafts for the week."""
+    """Submits approved timesheet drafts for the week to Rysun Azure DevOps."""
     svc = TimesheetService(db, current_user.id)
     results = []
     for draft_id in req.draft_ids:
-        res = await svc.submit_draft_to_mycompany(
+        res = await svc.submit_draft_to_rysun(
             draft_id=draft_id,
             user_name=current_user.full_name,
             force_update_existing=req.force_update_existing,

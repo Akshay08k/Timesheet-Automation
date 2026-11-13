@@ -1,4 +1,4 @@
-"""Timesheet orchestration service for drafts, Gemini AI summaries, and MyCompany submission with MongoDB."""
+"""Timesheet orchestration service for drafts, Gemini AI summaries, and Rysun submission with MongoDB."""
 
 from datetime import datetime, timedelta, timezone
 import json
@@ -11,7 +11,6 @@ from backend.app.models.activity import ActivityItem
 from backend.app.models.manual_activity import ManualActivity
 from backend.app.models.credential import AdoCredential
 from backend.app.services.ai.gemini_service import GeminiSummaryService
-from backend.app.services.azure_mycompany.mycompany_service import AzureMyCompanyService
 from backend.app.services.azure_rysun.rysun_service import AzureRysunService
 
 
@@ -149,8 +148,8 @@ class TimesheetService:
         if ai_output.suggested_project:
             proj_str = ai_output.suggested_project.strip()
             if "secondary" in proj_str.lower() or "rma" in proj_str.lower():
-                draft.project_name = "ClientCompany - Secondary Project"
-                draft.area_path = rf"{self.settings.default_iteration}\ClientCompany Secondary"
+                draft.project_name = "VCC - RMA Modernization"
+                draft.area_path = r"Rysun Project Management\VCC - RMA Modernization"
             else:
                 draft.project_name = self.settings.default_project_name
                 draft.area_path = self.settings.default_area_path
@@ -198,13 +197,13 @@ class TimesheetService:
             updated_drafts.append(updated)
         return updated_drafts
 
-    async def submit_draft_to_mycompany(
+    async def submit_draft_to_rysun(
         self,
         draft_id: int,
         user_name: str,
         force_update_existing: bool = False,
     ) -> Dict[str, Any]:
-        """Submits a single daily draft to MyCompany Azure DevOps and tracks status in MongoDB."""
+        """Submits a single daily draft to Rysun Azure DevOps and tracks status in MongoDB."""
         draft_doc = self.db.daily_timesheet_drafts.find_one(
             {"id": draft_id, "user_id": self.user_id}
         )
@@ -214,23 +213,23 @@ class TimesheetService:
 
         draft = DailyTimesheetDraft.from_doc(draft_doc)
 
-        # Credential (supports both 'mycompany' and legacy 'rysun' provider keys)
+        # Credential (supports both 'rysun' and 'mycompany' provider keys)
         cred_doc = self.db.ado_credentials.find_one(
             {
                 "user_id": self.user_id,
-                "provider": {"$in": ["mycompany", "rysun"]},
+                "provider": {"$in": ["rysun", "mycompany"]},
                 "is_valid": True,
             }
         )
 
         if not cred_doc:
-            raise ValueError("No valid MyCompany Azure DevOps credential found.")
+            raise ValueError("No valid Rysun Azure DevOps credential found.")
 
         cred = AdoCredential.from_doc(cred_doc)
-        mycompany_service = AzureMyCompanyService(cred.org_url, cred.encrypted_pat)
+        rysun_service = AzureRysunService(cred.org_url, cred.encrypted_pat)
 
         # Check existing
-        existing = await mycompany_service.search_existing_timesheet(
+        existing = await rysun_service.search_existing_timesheet(
             date_str=draft.date_str,
             user_identity=cred.resolved_identity_name or user_name,
         )
@@ -304,14 +303,14 @@ class TimesheetService:
                 }
             elif existing and force_update_existing:
                 # Update existing
-                updated = await mycompany_service.update_resource_timesheet(existing["id"], fields_patch)
+                updated = await rysun_service.update_resource_timesheet(existing["id"], fields_patch)
                 workitem_id = updated.get("id")
                 self.db.daily_timesheet_drafts.update_one(
                     {"id": draft.id},
                     {
                         "$set": {
-                            "mycompany_workitem_id": workitem_id,
                             "ry_workitem_id": workitem_id,
+                            "mycompany_workitem_id": workitem_id,
                             "submission_status": "submitted",
                             "last_error": None,
                             "updated_at": datetime.now(timezone.utc),
@@ -328,14 +327,14 @@ class TimesheetService:
                 }
             else:
                 # Create new
-                created = await mycompany_service.create_resource_timesheet(title, fields_patch)
+                created = await rysun_service.create_resource_timesheet(title, fields_patch)
                 workitem_id = created.get("id")
                 self.db.daily_timesheet_drafts.update_one(
                     {"id": draft.id},
                     {
                         "$set": {
-                            "mycompany_workitem_id": workitem_id,
                             "ry_workitem_id": workitem_id,
+                            "mycompany_workitem_id": workitem_id,
                             "submission_status": "submitted",
                             "last_error": None,
                             "updated_at": datetime.now(timezone.utc),
@@ -368,5 +367,5 @@ class TimesheetService:
                 "message": f"Submission failed: {str(e)}",
             }
 
-    # Backward-compatibility alias
-    submit_draft_to_rysun = submit_draft_to_mycompany
+    # Compatibility alias
+    submit_draft_to_mycompany = submit_draft_to_rysun

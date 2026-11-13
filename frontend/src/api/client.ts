@@ -66,14 +66,14 @@ export const api = {
     return request<AdoCredential[]>('/credentials');
   },
 
-  async saveCredential(data: { provider: 'client' | 'mycompany' | 'rysun'; org_url: string; pat: string }): Promise<AdoCredential> {
+  async saveCredential(data: { provider: 'client' | 'rysun' | 'mycompany'; org_url: string; pat: string }): Promise<AdoCredential> {
     return request<AdoCredential>('/credentials', {
       method: 'POST',
       body: JSON.stringify(data),
     });
   },
 
-  async deleteCredential(provider: 'client' | 'mycompany' | 'rysun'): Promise<void> {
+  async deleteCredential(provider: 'client' | 'rysun' | 'mycompany'): Promise<void> {
     return request<void>(`/credentials/${provider}`, {
       method: 'DELETE',
     });

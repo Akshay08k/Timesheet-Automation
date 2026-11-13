@@ -20,7 +20,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onWeekChange,
 }) => {
   const clientCred = credentials.find((c) => c.provider === 'client' && c.is_valid);
-  const mycompanyCred = credentials.find((c) => (c.provider === 'mycompany' || c.provider === 'rysun') && c.is_valid);
+  const rysunCred = credentials.find((c) => (c.provider === 'rysun' || c.provider === 'mycompany') && c.is_valid);
 
   const handlePrevWeek = () => {
     const d = new Date(selectedMonday);
@@ -112,8 +112,8 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
             <span className="text-slate-300">|</span>
             <div className="flex items-center gap-1.5">
-              <span className="text-slate-600 font-medium">MyCompany:</span>
-              {mycompanyCred ? (
+              <span className="text-slate-600 font-medium">Rysun:</span>
+              {rysunCred ? (
                 <span className="inline-flex items-center text-emerald-700 font-semibold gap-0.5">
                   <CheckCircle2 className="w-3.5 h-3.5" /> Connected
                 </span>

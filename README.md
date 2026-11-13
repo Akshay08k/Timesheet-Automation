@@ -1,6 +1,6 @@
 # DevTimesheet ⏱️🤖
 
-**DevTimesheet** is an enterprise-grade engineering timesheet automation platform. It seamlessly extracts daily engineering activities (Git commits, Pull Requests, code reviews, and linked work items) from a **Client Azure DevOps organization (`ClientCompany`)**, leverages **Google Gemini AI** to produce professional daily summaries formatted in clean **README (Markdown) format** with point-wise bullet items, and creates or updates **Resource Timesheet** work items in your company's **Azure DevOps organization (`MyCompany`)**.
+**DevTimesheet** is an enterprise-grade engineering timesheet automation platform. It seamlessly extracts daily engineering activities (Git commits, Pull Requests, code reviews, and linked work items) from the **Visual Comfort & Co (VCQMS) Azure DevOps organization**, leverages **Google Gemini AI** to produce professional daily summaries formatted in clean **README (Markdown) format** with point-wise bullet items, and creates or updates **Resource Timesheet** work items in the **Rysun Azure DevOps organization**.
 
 ---
 
@@ -15,11 +15,11 @@
 - **High-Performance MongoDB Persistence**:
   - Built with MongoDB Atlas / local MongoDB with connection pooling, automatic index creation, and atomic sequence counters.
   - Multi-user isolation across all collections (`user_id` enforced on every query).
-- **Two-Way Idempotent Sync with MyCompany Azure DevOps**:
+- **Two-Way Idempotent Sync with Rysun Azure DevOps**:
   - Queries existing timesheets via WIQL to prevent accidental duplicates.
-  - Allows 1-click **Update in MyCompany** to refresh previously submitted timesheets with updated descriptions or hours.
+  - Allows 1-click **Update in Rysun** to refresh previously submitted timesheets with updated descriptions or hours.
 - **Optimistic UI with Debounced Persistence**:
-  - Instantaneous, zero-lag editing in the timesheet review interface with automatic 400ms debouncing before saving to the server.
+  - Instantaneous, zero-lag editing in the timesheet review interface with automatic debouncing before saving to the server.
 - **Zero-Leak Enterprise Security**:
   - Personal Access Tokens (PATs) and credentials are encrypted at rest using **AES-256-GCM** with unique 96-bit nonces.
   - User passwords are protected with **bcrypt** (12 rounds).
@@ -41,7 +41,7 @@
 │  ├── Security: AES-256-GCM Credential Encryption       │
 │  ├── AI Service: Google Gemini API (Structured Output) │
 │  ├── Client Connector: Repositories, Commits, PRs      │
-│  └── MyCompany Connector: Resource Timesheets (REST)   │
+│  └── Rysun Connector: Resource Timesheets (REST)       │
 └─────────────────────┬───────────────────────┬──────────┘
                       │                       │
                       ▼                       ▼
@@ -52,8 +52,8 @@
                       ▲                       ▲
                       │                       │
           ┌───────────┴───────────┐ ┌─────────┴─────────┐
-          │ Client Azure DevOps   │ │ MyCompany DevOps  │
-          │ (ClientCompany)       │ │ (MyCompany)       │
+          │ Client Azure DevOps   │ │ Rysun DevOps      │
+          │ (Visual Comfort & Co) │ │ (Rysun)           │
           └───────────────────────┘ └───────────────────┘
 ```
 
@@ -116,12 +116,12 @@ MONGODB_DB_NAME=devtimesheet
 GEMINI_API_KEY=your_gemini_api_key_here
 
 # Default Organization Settings
-DEFAULT_CLIENT_ORG_URL=https://dev.azure.com/ClientCompany
-DEFAULT_MYCOMPANY_ORG_URL=https://dev.azure.com/MyCompany
-DEFAULT_CLIENT_NAME=ClientCompany
-DEFAULT_PROJECT_NAME=ClientCompany - Core Enhancements
-DEFAULT_ITERATION=MyCompany Project Management
-DEFAULT_AREA_PATH=MyCompany Project Management\ClientCompany
+DEFAULT_CLIENT_ORG_URL=https://dev.azure.com/VisualComfortCo
+DEFAULT_RYSUN_ORG_URL=https://dev.azure.com/Rysun
+DEFAULT_CLIENT_NAME=Visual Comfort and Co
+DEFAULT_PROJECT_NAME=VCC - VCQMS Enhancements and InspectionDB
+DEFAULT_ITERATION=Rysun Project Management
+DEFAULT_AREA_PATH=Rysun Project Management\VC - VCQMS
 ```
 
 Run unit tests:
@@ -165,7 +165,7 @@ Frontend application will be running at: `http://localhost:5173`
 | `GET` | `/api/auth/me` | Fetch current user profile |
 | `GET` | `/api/credentials` | List configured Azure DevOps connections |
 | `POST` | `/api/credentials` | Validate & store encrypted PAT credentials |
-| `DELETE`| `/api/credentials/{provider}`| Revoke stored credentials (`client` / `mycompany`) |
+| `DELETE`| `/api/credentials/{provider}`| Revoke stored credentials (`client` / `rysun`) |
 | `GET` | `/api/activities` | List engineering activities with date/type filters |
 | `POST` | `/api/activities/sync` | Sync Git commits & PRs from Client Azure DevOps |
 | `PATCH`| `/api/activities/{id}/toggle-exclude` | Exclude/include specific activity from AI summaries |
@@ -173,7 +173,7 @@ Frontend application will be running at: `http://localhost:5173`
 | `POST` | `/api/summaries/generate-week` | Generate AI summaries for all 5 weekdays in 1 call |
 | `GET` | `/api/timesheets/week/{monday}`| Retrieve weekly review entries with remote status |
 | `PATCH`| `/api/timesheets/drafts/{id}` | Update draft fields (debounced autosave) |
-| `POST` | `/api/timesheets/submit-day` | Submit / update single day timesheet to MyCompany ADO |
+| `POST` | `/api/timesheets/submit-day` | Submit / update single day timesheet to Rysun ADO |
 | `POST` | `/api/timesheets/submit-week` | Submit approved timesheets for the entire week |
 
 ---
@@ -181,5 +181,5 @@ Frontend application will be running at: `http://localhost:5173`
 ## 🔒 Security Best Practices
 
 1. **PAT Encryption**: PAT tokens are never stored in plaintext and never transmitted to the browser or AI prompts.
-2. **Environment Isolation**: Default placeholders `ClientCompany` and `MyCompany` prevent accidental exposure of corporate identities or client project metadata.
+2. **Access Control**: User authentication is validated via JWT Bearer tokens and company email domain.
 3. **Repository Logs**: Sync logs are written to `fetchClientLogs.txt` which is ignored in `.gitignore` to prevent secret leakage.
